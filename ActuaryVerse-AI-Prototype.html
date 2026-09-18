@@ -1,0 +1,2251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ActuaryVerse AI — Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --primary:#1E40AF;
+  --primary-light:#3B5FE0;
+  --primary-dark:#152C82;
+  --secondary:#F97316;
+  --secondary-light:#FB923C;
+  --emerald:#10B981;
+  --purple:#8B5CF6;
+  --cyan:#06B6D4;
+  --gold:#F59E0B;
+  --ink:#0F1B3D;
+  --ink-soft:#4A5578;
+  --paper:#F6F8FE;
+  --glass-bg:rgba(255,255,255,0.62);
+  --glass-border:rgba(255,255,255,0.9);
+  --radius:20px;
+  --shadow-sm:0 4px 16px rgba(30,64,175,0.08);
+  --shadow-md:0 12px 32px rgba(30,64,175,0.14);
+  --shadow-lg:0 24px 64px rgba(30,64,175,0.22);
+}
+[data-theme="dark"]{
+  --ink:#EEF2FF;
+  --ink-soft:#B7C0E8;
+  --paper:#0A1130;
+  --glass-bg:rgba(20,26,58,0.62);
+  --glass-border:rgba(90,110,200,0.35);
+  --shadow-sm:0 4px 16px rgba(0,0,0,0.3);
+  --shadow-md:0 12px 32px rgba(0,0,0,0.4);
+  --shadow-lg:0 24px 64px rgba(0,0,0,0.55);
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body{height:100%;}
+body{
+  font-family:'Poppins',sans-serif;
+  background:var(--paper);
+  color:var(--ink);
+  overflow:hidden;
+  transition:background .4s ease, color .4s ease;
+}
+::-webkit-scrollbar{width:8px; height:8px;}
+::-webkit-scrollbar-thumb{background:rgba(30,64,175,0.25); border-radius:8px;}
+::-webkit-scrollbar-thumb:hover{background:rgba(30,64,175,0.45);}
+
+/* ---------- App shell / phone-less full frame ---------- */
+#app{
+  position:relative;
+  width:100vw; height:100vh;
+  overflow:hidden;
+}
+
+/* Ambient background: gradient mesh + floating blurred circles */
+.mesh-bg{
+  position:absolute; inset:0; z-index:0; overflow:hidden;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(59,95,224,0.16), transparent 42%),
+    radial-gradient(circle at 85% 12%, rgba(249,115,22,0.14), transparent 40%),
+    radial-gradient(circle at 78% 85%, rgba(16,185,129,0.14), transparent 45%),
+    radial-gradient(circle at 15% 88%, rgba(139,92,246,0.14), transparent 42%),
+    var(--paper);
+  transition:background .4s ease;
+}
+.blob{
+  position:absolute; border-radius:50%; filter:blur(60px); opacity:.55;
+  animation:float 14s ease-in-out infinite;
+}
+.blob.b1{width:340px; height:340px; background:var(--primary-light); top:-80px; left:-80px; animation-delay:0s;}
+.blob.b2{width:280px; height:280px; background:var(--secondary-light); bottom:-60px; right:-40px; animation-delay:2s;}
+.blob.b3{width:220px; height:220px; background:var(--emerald); top:55%; left:75%; animation-delay:4s;}
+.blob.b4{width:200px; height:200px; background:var(--purple); bottom:10%; left:8%; animation-delay:6s;}
+@keyframes float{
+  0%,100%{transform:translateY(0) translateX(0) scale(1);}
+  50%{transform:translateY(-26px) translateX(18px) scale(1.06);}
+}
+
+.screen{
+  position:absolute; inset:0; z-index:1;
+  display:none;
+  opacity:0;
+  transform:translateY(14px) scale(.99);
+  transition:opacity .38s cubic-bezier(.2,.8,.2,1), transform .38s cubic-bezier(.2,.8,.2,1);
+  overflow:auto;
+}
+.screen.active{ display:block; opacity:1; transform:translateY(0) scale(1); }
+
+/* ---------- Reusable ---------- */
+.glass{
+  background:var(--glass-bg);
+  border:1px solid var(--glass-border);
+  border-radius:var(--radius);
+  backdrop-filter:blur(18px) saturate(160%);
+  -webkit-backdrop-filter:blur(18px) saturate(160%);
+  box-shadow:var(--shadow-sm);
+}
+.gradient-title{
+  background:linear-gradient(100deg,var(--primary) 10%, var(--secondary) 55%, var(--purple) 95%);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  font-weight:800;
+}
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  border:none; cursor:pointer; font-family:inherit; font-weight:600; font-size:14px;
+  padding:13px 26px; border-radius:14px; transition:transform .15s ease, box-shadow .2s ease, filter .2s ease;
+  white-space:nowrap;
+}
+.btn:active{transform:scale(.96);}
+.btn-primary{background:linear-gradient(135deg,var(--primary),var(--primary-light)); color:#fff; box-shadow:0 10px 24px rgba(30,64,175,0.35);}
+.btn-primary:hover{filter:brightness(1.08); box-shadow:0 14px 30px rgba(30,64,175,0.45);}
+.btn-secondary{background:linear-gradient(135deg,var(--secondary),var(--secondary-light)); color:#fff; box-shadow:0 10px 24px rgba(249,115,22,0.35);}
+.btn-secondary:hover{filter:brightness(1.08);}
+.btn-ghost{background:rgba(30,64,175,0.08); color:var(--primary);}
+[data-theme="dark"] .btn-ghost{background:rgba(120,140,255,0.14); color:#B9C4FF;}
+.btn-ghost:hover{background:rgba(30,64,175,0.15);}
+.btn-outline{background:transparent; border:1.5px solid rgba(30,64,175,0.3); color:var(--primary);}
+[data-theme="dark"] .btn-outline{color:#B9C4FF; border-color:rgba(120,140,255,0.4);}
+.btn-sm{padding:8px 16px; font-size:12.5px; border-radius:10px;}
+.btn-block{width:100%;}
+.pill{
+  display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:100px;
+  font-size:11.5px; font-weight:600; letter-spacing:.2px;
+}
+.card{
+  border-radius:18px; padding:18px; background:var(--glass-bg); border:1px solid var(--glass-border);
+  box-shadow:var(--shadow-sm); transition:transform .22s ease, box-shadow .22s ease;
+  cursor:pointer;
+}
+.card:hover{ transform:translateY(-5px); box-shadow:var(--shadow-md); }
+.hoverlift:hover{transform:translateY(-4px);}
+h1,h2,h3{font-weight:800;}
+p,span,div{color:var(--ink);}
+.muted{color:var(--ink-soft) !important; font-weight:400;}
+.icon-badge{
+  width:44px; height:44px; border-radius:14px; display:flex; align-items:center; justify-content:center;
+  font-size:20px; flex-shrink:0;
+}
+input, select, textarea{
+  font-family:inherit; border-radius:12px; border:1.5px solid rgba(30,64,175,0.15);
+  padding:12px 14px; font-size:14px; background:rgba(255,255,255,0.7); color:var(--ink); outline:none;
+  transition:border-color .2s ease;
+}
+[data-theme="dark"] input, [data-theme="dark"] select, [data-theme="dark"] textarea{ background:rgba(255,255,255,0.06); border-color:rgba(120,140,255,0.25); }
+input:focus, select:focus, textarea:focus{ border-color:var(--primary); }
+label{font-size:12.5px; font-weight:600; color:var(--ink-soft); display:block; margin-bottom:6px;}
+
+/* progress bar */
+.progress-track{width:100%; height:10px; border-radius:100px; background:rgba(30,64,175,0.1); overflow:hidden;}
+.progress-fill{height:100%; border-radius:100px; background:linear-gradient(90deg,var(--primary),var(--cyan)); transition:width 1s cubic-bezier(.2,.8,.2,1);}
+
+/* toast */
+#toast{
+  position:fixed; bottom:26px; left:50%; transform:translateX(-50%) translateY(20px);
+  background:var(--ink); color:#fff; padding:12px 22px; border-radius:100px; font-size:13.5px; font-weight:600;
+  z-index:999; opacity:0; pointer-events:none; transition:all .3s ease; box-shadow:0 12px 30px rgba(0,0,0,.25);
+  display:flex; align-items:center; gap:8px;
+}
+[data-theme="dark"] #toast{background:#fff; color:#0A1130;}
+#toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+/* confetti */
+.confetti-piece{position:fixed; top:-10px; z-index:1000; border-radius:2px; pointer-events:none; animation:confettiFall linear forwards;}
+@keyframes confettiFall{ to{ transform:translateY(110vh) rotate(560deg); opacity:0.2; } }
+
+/* floating AI assistant */
+#ai-fab{
+  position:fixed; bottom:26px; right:26px; z-index:60; width:60px; height:60px; border-radius:50%;
+  background:linear-gradient(135deg,var(--purple),var(--primary)); display:flex; align-items:center; justify-content:center;
+  font-size:26px; color:#fff; cursor:pointer; box-shadow:0 14px 34px rgba(139,92,246,0.45);
+  animation:pulseFab 3s ease-in-out infinite;
+}
+@keyframes pulseFab{ 0%,100%{transform:scale(1);} 50%{transform:scale(1.07);} }
+
+/* App layout (post-login) */
+.app-shell{display:flex; height:100vh;}
+.sidebar{
+  width:230px; flex-shrink:0; padding:22px 14px; display:flex; flex-direction:column; gap:6px;
+  border-right:1px solid rgba(30,64,175,0.08); position:relative; z-index:2;
+}
+.sidebar .brand{display:flex; align-items:center; gap:10px; padding:8px 10px 22px;}
+.sidebar .brand .logo{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,var(--primary),var(--secondary));display:flex;align-items:center;justify-content:center;font-size:19px;}
+.nav-item{
+  display:flex; align-items:center; gap:12px; padding:11px 14px; border-radius:12px; cursor:pointer;
+  font-size:13.5px; font-weight:600; color:var(--ink-soft); transition:all .18s ease;
+}
+.nav-item .ic{font-size:17px; width:20px; text-align:center;}
+.nav-item:hover{background:rgba(30,64,175,0.07); color:var(--primary);}
+.nav-item.active{background:linear-gradient(135deg,var(--primary),var(--primary-light)); color:#fff; box-shadow:0 8px 18px rgba(30,64,175,.3);}
+.main-area{flex:1; overflow-y:auto; position:relative; z-index:2; padding:26px 34px 90px;}
+.topbar{display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; flex-wrap:wrap; gap:12px;}
+
+.grid{display:grid; gap:18px;}
+.g2{grid-template-columns:repeat(2,1fr);}
+.g3{grid-template-columns:repeat(3,1fr);}
+.g4{grid-template-columns:repeat(4,1fr);}
+@media(max-width:1000px){ .g4{grid-template-columns:repeat(2,1fr);} .g3{grid-template-columns:repeat(2,1fr);} }
+
+.avatar-circle{border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff; flex-shrink:0;}
+
+/* onboarding dots */
+.dots{display:flex; gap:7px; justify-content:center;}
+.dot{width:8px; height:8px; border-radius:50%; background:rgba(30,64,175,0.2); transition:all .3s ease;}
+.dot.active{width:26px; background:linear-gradient(90deg,var(--primary),var(--secondary));}
+
+/* flip card */
+.flip-card{ perspective:1400px; cursor:pointer; }
+.flip-inner{ position:relative; width:100%; height:100%; transition:transform .6s cubic-bezier(.2,.8,.2,1); transform-style:preserve-3d; }
+.flip-card.flipped .flip-inner{ transform:rotateY(180deg); }
+.flip-face{ position:absolute; inset:0; backface-visibility:hidden; border-radius:24px; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:30px; text-align:center;}
+.flip-back{ transform:rotateY(180deg); }
+
+/* switch */
+.switch{width:44px; height:24px; border-radius:100px; background:rgba(30,64,175,.18); position:relative; cursor:pointer; flex-shrink:0; transition:background .25s;}
+.switch.on{background:linear-gradient(90deg,var(--primary),var(--cyan));}
+.switch .knob{position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:#fff; transition:transform .25s; box-shadow:0 2px 6px rgba(0,0,0,.2);}
+.switch.on .knob{transform:translateX(20px);}
+
+.chip{padding:7px 14px; border-radius:100px; font-size:12.5px; font-weight:600; cursor:pointer; background:rgba(30,64,175,0.07); color:var(--ink-soft); transition:all .18s;}
+.chip.active{background:var(--primary); color:#fff;}
+
+.skel{background:linear-gradient(90deg, rgba(30,64,175,.06) 25%, rgba(30,64,175,.14) 37%, rgba(30,64,175,.06) 63%); background-size:400% 100%; animation:skel 1.4s ease infinite; border-radius:10px;}
+@keyframes skel{0%{background-position:100% 50%;} 100%{background-position:0 50%;}}
+
+.badge-hex{
+  width:78px; height:88px; position:relative; display:flex; align-items:center; justify-content:center; font-size:30px;
+  clip-path:polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+::selection{background:rgba(249,115,22,.3);}
+a{text-decoration:none;}
+.back-btn{display:inline-flex; align-items:center; gap:6px; font-weight:600; font-size:13px; color:var(--ink-soft); cursor:pointer;}
+.back-btn:hover{color:var(--primary);}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="mesh-bg">
+    <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="blob b4"></div>
+  </div>
+
+  <!-- ============ SCREEN 1: SPLASH ============ -->
+  <div class="screen active" id="scr-splash">
+    <div style="height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px;">
+      <div style="width:110px;height:110px;border-radius:32px;background:linear-gradient(135deg,var(--primary),var(--secondary));display:flex;align-items:center;justify-content:center;font-size:52px;box-shadow:0 20px 50px rgba(30,64,175,.4); animation:pulseFab 2.2s ease-in-out infinite;">🧮</div>
+      <div style="text-align:center;">
+        <div style="font-size:34px; letter-spacing:-0.5px;" class="gradient-title">ActuaryVerse AI</div>
+        <div class="muted" style="margin-top:8px; font-size:14.5px; letter-spacing:.3px;">Play. Analyze. Predict. Become an Actuary.</div>
+      </div>
+      <div style="width:220px; margin-top:6px;">
+        <div class="progress-track"><div class="progress-fill" id="splashBar" style="width:0%"></div></div>
+      </div>
+      <div class="muted" style="font-size:11.5px;">AI particles calibrating your learning world…</div>
+    </div>
+  </div>
+
+  <!-- ============ SCREEN 2: ONBOARDING ============ -->
+  <div class="screen" id="scr-onboarding">
+    <div style="height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px;">
+      <div class="back-btn" style="position:absolute; top:28px; right:34px;" onclick="showScreen('login')">Skip →</div>
+      <div class="glass" style="width:min(440px,90vw); padding:40px 34px; text-align:center; position:relative;" id="onboardCard">
+        <div style="font-size:64px; margin-bottom:18px;" id="obIcon">🎮</div>
+        <h2 style="font-size:23px; margin-bottom:10px;" id="obTitle">Learn General Insurance through Games</h2>
+        <p class="muted" style="font-size:13.5px; line-height:1.6;" id="obDesc">Turn actuarial theory into missions, arcade challenges, and boss battles across P&C insurance.</p>
+      </div>
+      <div class="dots" style="margin-top:26px;" id="obDots"></div>
+      <div style="display:flex; gap:12px; margin-top:26px;">
+        <button class="btn btn-outline" onclick="obPrev()">Back</button>
+        <button class="btn btn-primary" onclick="obNext()" id="obNextBtn">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SCREEN 3: LOGIN ============ -->
+  <div class="screen" id="scr-login">
+    <div style="height:100%; display:flex; align-items:center; justify-content:center; padding:20px;">
+      <div class="glass" style="width:min(420px,92vw); padding:38px 32px;">
+        <div style="text-align:center; margin-bottom:22px;">
+          <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--primary),var(--secondary));display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 12px;">🧮</div>
+          <h2 style="font-size:21px;">Welcome back</h2>
+          <p class="muted" style="font-size:13px; margin-top:4px;">Sign in to continue your actuarial journey</p>
+        </div>
+        <div style="display:flex; gap:8px; margin-bottom:18px;">
+          <div class="chip role-chip active" data-role="Student" onclick="selectRole(this)" style="flex:1; text-align:center;">🎓 Student</div>
+          <div class="chip role-chip" data-role="Instructor" onclick="selectRole(this)" style="flex:1; text-align:center;">🧑‍🏫 Instructor</div>
+          <div class="chip role-chip" data-role="Admin" onclick="selectRole(this)" style="flex:1; text-align:center;">🛡️ Admin</div>
+        </div>
+        <label>Email</label>
+        <input class="btn-block" placeholder="you@university.edu" style="width:100%; margin-bottom:14px;">
+        <label>Password</label>
+        <input class="btn-block" type="password" placeholder="••••••••" style="width:100%; margin-bottom:8px;">
+        <div style="text-align:right; margin-bottom:18px;"><span class="muted" style="font-size:12px; cursor:pointer;" onclick="toast('Password reset link sent 📧')">Forgot password?</span></div>
+        <button class="btn btn-primary btn-block" onclick="doLogin()">Sign In as <span id="roleLabel">Student</span></button>
+        <div style="display:flex; align-items:center; gap:10px; margin:18px 0;">
+          <div style="flex:1;height:1px;background:rgba(30,64,175,.15);"></div><span class="muted" style="font-size:11.5px;">OR</span><div style="flex:1;height:1px;background:rgba(30,64,175,.15);"></div>
+        </div>
+        <button class="btn btn-outline btn-block" onclick="toast('Connecting to Google…')">🔵 Continue with Google</button>
+        <p style="text-align:center; margin-top:20px; font-size:12.5px;" class="muted">New to ActuaryVerse? <span style="color:var(--primary); font-weight:600; cursor:pointer;" onclick="showScreen('signup')">Create account</span></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SCREEN 4: SIGN UP ============ -->
+  <div class="screen" id="scr-signup">
+    <div style="height:100%; overflow-y:auto; display:flex; align-items:center; justify-content:center; padding:40px 20px;">
+      <div class="glass" style="width:min(560px,94vw); padding:36px 34px;">
+        <div class="back-btn" onclick="showScreen('login')" style="margin-bottom:14px;">← Back to login</div>
+        <h2 style="font-size:22px; margin-bottom:4px;">Create your account</h2>
+        <p class="muted" style="font-size:13px; margin-bottom:22px;">Tell us about yourself to personalize your world</p>
+        <div class="grid g2">
+          <div><label>Full name</label><input id="suName" placeholder="Ada Lovelace" style="width:100%;"></div>
+          <div><label>University</label><input id="suUni" placeholder="University of Waterloo" style="width:100%;"></div>
+          <div><label>Country</label><input placeholder="Canada" style="width:100%;"></div>
+          <div><label>Degree program</label><input placeholder="B.Sc. Actuarial Science" style="width:100%;"></div>
+        </div>
+        <label style="margin-top:14px;">I'm studying towards</label>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;" id="credChips">
+          <div class="chip active" onclick="selectChip(this)">CAS</div><div class="chip" onclick="selectChip(this)">IAI</div><div class="chip" onclick="selectChip(this)">SOA</div><div class="chip" onclick="selectChip(this)">IFoA</div>
+        </div>
+        <label>Choose your interests</label>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px;" id="interestChips">
+          <div class="chip" onclick="toggleChip(this)">🚗 Motor</div>
+          <div class="chip" onclick="toggleChip(this)">🏠 Property</div>
+          <div class="chip" onclick="toggleChip(this)">🛡️ Cyber</div>
+          <div class="chip" onclick="toggleChip(this)">🌪️ Climate</div>
+          <div class="chip" onclick="toggleChip(this)">🕵️ Fraud</div>
+          <div class="chip" onclick="toggleChip(this)">📊 Analytics</div>
+        </div>
+        <button class="btn btn-primary btn-block" onclick="saveSignup()">Continue to Avatar Creator →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SCREEN 5: AVATAR CREATOR ============ -->
+  <div class="screen" id="scr-avatar">
+    <div style="height:100%; overflow-y:auto; padding:34px 6vw;">
+      <div class="back-btn" onclick="showScreen('signup')" style="margin-bottom:14px;">← Back</div>
+      <h2 style="font-size:24px; margin-bottom:4px;">Build your <span class="gradient-title">Actuary Avatar</span></h2>
+      <p class="muted" style="font-size:13.5px; margin-bottom:24px;">This is who explores the ActuaryVerse with you.</p>
+      <div style="display:flex; gap:28px; flex-wrap:wrap;">
+        <div class="glass" style="width:240px; padding:26px; text-align:center; height:fit-content; position:sticky; top:0;">
+          <div id="avatarPreview" style="width:150px;height:150px; border-radius:32px; margin:0 auto 16px; background:linear-gradient(135deg,var(--purple),var(--primary)); display:flex; align-items:center; justify-content:center; font-size:70px; box-shadow:var(--shadow-md);">🧑‍💼</div>
+          <div id="avatarPreviewName" style="font-weight:700;">Ada Lovelace</div>
+          <div class="muted" style="font-size:12px;">Level 1 · Explorer</div>
+        </div>
+        <div style="flex:1; min-width:280px;">
+          <div class="grid g2" id="avatarOptions">
+            <!-- filled by JS -->
+          </div>
+          <button class="btn btn-secondary btn-block" style="margin-top:20px;" onclick="toast('Avatar saved! 🎉'); showScreen('mainapp'); navTo('dashboard')">Save Avatar & Enter ActuaryVerse →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MAIN APP (post login) ============ -->
+  <div class="screen" id="scr-mainapp">
+    <div class="app-shell">
+      <div class="sidebar glass" style="border-radius:0;">
+        <div class="brand">
+          <div class="logo">🧮</div>
+          <div>
+            <div style="font-weight:800; font-size:14.5px; line-height:1.1;" class="gradient-title">ActuaryVerse</div>
+            <div class="muted" style="font-size:10px;">AI · Powered</div>
+          </div>
+        </div>
+        <div class="nav-item" data-nav="dashboard" onclick="navTo('dashboard')"><span class="ic">🏠</span>Dashboard</div>
+        <div class="nav-item" data-nav="worldmap" onclick="navTo('worldmap')"><span class="ic">🗺️</span>World Map</div>
+        <div class="nav-item" data-nav="mission" onclick="navTo('mission')"><span class="ic">📘</span>Missions</div>
+        <div class="nav-item" data-nav="flashacademy" onclick="navTo('flashacademy')"><span class="ic">🗂️</span>Flashcards</div>
+        <div class="nav-item" data-nav="arcade" onclick="navTo('arcade')"><span class="ic">🕹️</span>Mini Games</div>
+        <div class="nav-item" data-nav="datasethub" onclick="navTo('datasethub')"><span class="ic">📦</span>Dataset Hub</div>
+        <div class="nav-item" data-nav="projectlab" onclick="navTo('projectlab')"><span class="ic">🧪</span>Project Lab</div>
+        <div class="nav-item" data-nav="aitutor" onclick="navTo('aitutor')"><span class="ic">🤖</span>AI Tutor (AURA)</div>
+        <div class="nav-item" data-nav="simlab" onclick="navTo('simlab')"><span class="ic">🌊</span>Simulation Lab</div>
+        <div class="nav-item" data-nav="casestudy" onclick="navTo('casestudy')"><span class="ic">📚</span>Case Studies</div>
+        <div class="nav-item" data-nav="dashboards" onclick="navTo('dashboards')"><span class="ic">📟</span>Insurance Dashboards</div>
+        <div class="nav-item" data-nav="resources" onclick="navTo('resources')"><span class="ic">🗃️</span>Resources Library</div>
+        <div class="nav-item" data-nav="leaderboard" onclick="navTo('leaderboard')"><span class="ic">🏆</span>Leaderboard</div>
+        <div class="nav-item" data-nav="badges" onclick="navTo('badges')"><span class="ic">🎖️</span>Badges</div>
+        <div class="nav-item" data-nav="store" onclick="navTo('store')"><span class="ic">🛍️</span>Reward Store</div>
+        <div class="nav-item" data-nav="community" onclick="navTo('community')"><span class="ic">💬</span>Community</div>
+        <div class="nav-item" data-nav="analytics" onclick="navTo('analytics')"><span class="ic">📈</span>My Analytics</div>
+        <div class="nav-item" data-nav="instructor" onclick="navTo('instructor')"><span class="ic">🧑‍🏫</span>Instructor Portal</div>
+        <div style="flex:1;"></div>
+        <div class="nav-item" data-nav="certificates" onclick="navTo('certificates')"><span class="ic">📜</span>Certificates</div>
+        <div class="nav-item" data-nav="profile" onclick="navTo('profile')"><span class="ic">👤</span>Profile</div>
+        <div class="nav-item" data-nav="settings" onclick="navTo('settings')"><span class="ic">⚙️</span>Settings</div>
+        <div class="nav-item" onclick="showScreen('login'); toast('Signed out')"><span class="ic">🚪</span>Log Out</div>
+      </div>
+      <div class="main-area" id="mainArea"><!-- injected per-tab --></div>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+<div id="ai-fab" onclick="openAuraFab()" title="Ask AURA">✨</div>
+
+<script>
+/* ============================= UTIL ============================= */
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.innerHTML=msg; t.classList.add('show');
+  clearTimeout(window._toastTimer);
+  window._toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
+}
+function jsAttr(str){ return String(str).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+function confetti(n=60){
+  const colors=['#1E40AF','#F97316','#10B981','#8B5CF6','#06B6D4','#F59E0B'];
+  for(let i=0;i<n;i++){
+    const p=document.createElement('div');
+    p.className='confetti-piece';
+    const size=(Math.random()*8+5);
+    p.style.width=size+'px'; p.style.height=(size*0.5)+'px';
+    p.style.left=(Math.random()*100)+'vw';
+    p.style.background=colors[Math.floor(Math.random()*colors.length)];
+    p.style.animationDuration=(Math.random()*1.6+1.8)+'s';
+    document.body.appendChild(p);
+    setTimeout(()=>p.remove(),3600);
+  }
+}
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('scr-'+id).classList.add('active');
+  window.scrollTo(0,0);
+}
+function openAuraFab(){
+  if(document.getElementById('scr-mainapp').classList.contains('active')){ navTo('aitutor'); }
+  else { toast('✨ Sign in to chat with AURA'); }
+}
+
+/* ============================= SHARED APP STATE ============================= */
+/* Client-side session state — every screen reads from this single object so
+   XP / coins / streak / name stay consistent across Dashboard, Profile,
+   Leaderboard and Store as you play. (No server: state resets on reload.) */
+const userState={
+  name:'Ada Lovelace', uni:'University of Waterloo', avatarEmoji:'🧑‍💼',
+  xp:4280, coins:1120, gems:46, streak:12, level:7,
+  completedGames:0, completedQuizzes:0
+};
+const activeViewOfTab={}; // remembers current tab so we can silently refresh it
+let currentTab='dashboard';
+function addXP(amount, reason){
+  userState.xp+=amount;
+  const newLevel=Math.floor(userState.xp/650)+1;
+  const leveledUp = newLevel>userState.level;
+  userState.level=newLevel;
+  toast(`⭐ +${amount} XP${reason?' — '+reason:''}${leveledUp?' · 🎉 Level up! Now Level '+newLevel:''}`);
+  refreshLiveViews();
+}
+function addCoins(amount){
+  userState.coins+=amount;
+  refreshLiveViews();
+}
+/* Re-renders the current tab in place if it's one whose numbers just changed,
+   so XP/coins/level update live without the user needing to navigate away. */
+function refreshLiveViews(){
+  if(['dashboard','profile','leaderboard','store','analytics'].includes(currentTab)){
+    const area=document.getElementById('mainArea');
+    if(area) area.innerHTML = renderers[currentTab] ? renderers[currentTab]() : area.innerHTML;
+  }
+}
+
+/* ============================= SPLASH -> ONBOARDING ============================= */
+let splashPct=0;
+const splashInterval=setInterval(()=>{
+  splashPct+=Math.random()*18;
+  if(splashPct>=100){splashPct=100; clearInterval(splashInterval); setTimeout(()=>showScreen('onboarding'),350);}
+  document.getElementById('splashBar').style.width=splashPct+'%';
+},220);
+
+/* ============================= ONBOARDING ============================= */
+const obSteps=[
+  {icon:'🎮',title:'Learn General Insurance through Games',desc:'Turn actuarial theory into missions, arcade challenges, and boss battles across P&C insurance.'},
+  {icon:'📊',title:'Analyze Real Insurance Datasets',desc:'Get hands-on with motor, property, cyber and climate datasets inside an interactive EDA playground.'},
+  {icon:'🌍',title:'Become a Climate & Cyber Risk Actuary',desc:'Simulate catastrophes, price emerging risks, and build a portfolio of real actuarial projects.'}
+];
+let obIndex=0;
+function renderOb(){
+  const s=obSteps[obIndex];
+  document.getElementById('obIcon').textContent=s.icon;
+  document.getElementById('obTitle').textContent=s.title;
+  document.getElementById('obDesc').textContent=s.desc;
+  const dotsEl=document.getElementById('obDots');
+  dotsEl.innerHTML=obSteps.map((_,i)=>`<div class="dot ${i===obIndex?'active':''}"></div>`).join('');
+  document.getElementById('obNextBtn').textContent = obIndex===obSteps.length-1 ? "Get Started" : "Next";
+  const card=document.getElementById('onboardCard');
+  card.style.animation='none'; void card.offsetWidth; card.style.animation='fadeSlide .35s ease';
+}
+function obNext(){
+  if(obIndex<obSteps.length-1){obIndex++; renderOb();}
+  else{showScreen('login');}
+}
+function obPrev(){ if(obIndex>0){obIndex--; renderOb();} }
+renderOb();
+const styleTag=document.createElement('style');
+styleTag.textContent='@keyframes fadeSlide{from{opacity:.3; transform:translateX(14px);} to{opacity:1; transform:translateX(0);}}';
+document.head.appendChild(styleTag);
+
+/* ============================= LOGIN ============================= */
+function selectRole(el){
+  document.querySelectorAll('.role-chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('roleLabel').textContent=el.dataset.role;
+}
+function doLogin(){
+  toast('Welcome back, Ada! 🎉');
+  showScreen('mainapp');
+  navTo('dashboard');
+}
+function toggleChip(el){ el.classList.toggle('active'); }
+function selectChip(el){
+  el.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+}
+function saveSignup(){
+  const name=document.getElementById('suName').value.trim();
+  const uni=document.getElementById('suUni').value.trim();
+  if(name) userState.name=name;
+  if(uni) userState.uni=uni;
+  document.getElementById('avatarPreviewName').textContent=userState.name;
+  showScreen('avatar');
+}
+
+/* ============================= AVATAR CREATOR ============================= */
+const avatarCats=[
+  {name:'Skin Tone', opts:['🟤','🟠','⚪','🟡']},
+  {name:'Hairstyle', opts:['💇‍♀️','💇‍♂️','🧑‍🦱','🧑‍🦳']},
+  {name:'Eyewear', opts:['👓','🕶️','—']},
+  {name:'Outfit', opts:['🤵 Business Suit','🥼 Cyber Hoodie','🧥 Climate Jacket','🪪 CAS Badge']},
+  {name:'Gear', opts:['💻 Laptop','🧮 Calculator','📎 Clipboard']},
+  {name:'Pet Assistant', opts:['🦉 Owl','🐈 Cat','🤖 Bot','🐢 Turtle']},
+];
+const avEmojis=['🧑‍💼','👩‍💼','🧑‍🎓','👨‍🚀','🧑‍🔬','👩‍💻'];
+function renderAvatarOptions(){
+  const el=document.getElementById('avatarOptions');
+  el.innerHTML=avatarCats.map((cat,ci)=>`
+    <div class="glass" style="padding:16px;">
+      <div style="font-weight:700; font-size:13px; margin-bottom:10px;">${cat.name}</div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        ${cat.opts.map((o,oi)=>`<div class="chip ${oi===0?'active':''}" onclick="pickAvatar(this,${ci})">${o}</div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+function pickAvatar(el,ci){
+  el.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  const emoji = avEmojis[Math.floor(Math.random()*avEmojis.length)];
+  document.getElementById('avatarPreview').textContent = emoji;
+  userState.avatarEmoji = emoji;
+}
+renderAvatarOptions();
+
+/* ============================= MAIN APP NAV ============================= */
+function navTo(tab){
+  currentTab=tab;
+  document.querySelectorAll('.nav-item[data-nav]').forEach(n=>n.classList.toggle('active', n.dataset.nav===tab));
+  const area=document.getElementById('mainArea');
+  area.innerHTML = renderers[tab] ? renderers[tab]() : `<div class="glass" style="padding:40px;text-align:center;">Coming soon</div>`;
+  area.scrollTop=0;
+}
+
+/* ---------- shared header helper ---------- */
+function pageHeader(title,sub,rightHtml=''){
+  return `<div class="topbar">
+    <div><h2 style="font-size:23px;">${title}</h2><p class="muted" style="font-size:13px; margin-top:2px;">${sub}</p></div>
+    <div style="display:flex; gap:10px; align-items:center;">${rightHtml}</div>
+  </div>`;
+}
+
+/* ============================= 6. DASHBOARD ============================= */
+function renderDashboard(){
+  return `
+  ${pageHeader(`Welcome back, ${userState.name.split(' ')[0]} 👋`,`Level ${userState.level} Explorer · Pricing City`,`<div class="pill" style="background:rgba(249,115,22,.12); color:var(--secondary);">🔥 ${userState.streak}-day streak</div>`)}
+  <div class="grid g4" style="margin-bottom:20px;">
+    <div class="card" onclick="navTo('analytics')"><div style="display:flex;align-items:center;gap:12px;"><div class="icon-badge" style="background:rgba(30,64,175,.1);">⭐</div><div><div style="font-weight:800; font-size:19px;">${userState.xp.toLocaleString()}</div><div class="muted" style="font-size:11.5px;">Total XP</div></div></div></div>
+    <div class="card" onclick="navTo('store')"><div style="display:flex;align-items:center;gap:12px;"><div class="icon-badge" style="background:rgba(245,158,11,.12);">🪙</div><div><div style="font-weight:800; font-size:19px;">${userState.coins.toLocaleString()}</div><div class="muted" style="font-size:11.5px;">Coins</div></div></div></div>
+    <div class="card" onclick="navTo('analytics')"><div style="display:flex;align-items:center;gap:12px;"><div class="icon-badge" style="background:rgba(249,115,22,.12);">🔥</div><div><div style="font-weight:800; font-size:19px;">${userState.streak} days</div><div class="muted" style="font-size:11.5px;">Daily streak</div></div></div></div>
+    <div class="card" onclick="navTo('profile')"><div style="display:flex;align-items:center;gap:12px;"><div class="icon-badge" style="background:rgba(16,185,129,.12);">🎯</div><div><div style="font-weight:800; font-size:19px;">Level ${userState.level}</div><div class="muted" style="font-size:11.5px;">Risk Analyst</div></div></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:2fr 1fr; margin-bottom:20px;">
+    <div class="glass" style="padding:22px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;"><h3 style="font-size:15.5px;">Weekly XP</h3><span class="muted" style="font-size:12px;">This week: +860 XP</span></div>
+      <div style="display:flex; align-items:flex-end; gap:10px; height:120px;">
+        ${[40,65,50,80,95,60,100].map((h,i)=>`<div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:6px;"><div style="width:100%; height:${h}px; border-radius:8px 8px 0 0; background:linear-gradient(180deg,var(--primary-light),var(--primary));"></div><span class="muted" style="font-size:10.5px;">${['M','T','W','T','F','S','S'][i]}</span></div>`).join('')}
+      </div>
+    </div>
+    <div class="glass" style="padding:22px; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+      <div style="position:relative; width:120px; height:120px;">
+        <svg width="120" height="120"><circle cx="60" cy="60" r="52" stroke="rgba(30,64,175,.1)" stroke-width="12" fill="none"/><circle cx="60" cy="60" r="52" stroke="url(#g1)" stroke-width="12" fill="none" stroke-dasharray="327" stroke-dashoffset="90" stroke-linecap="round" transform="rotate(-90 60 60)"/><defs><linearGradient id="g1"><stop offset="0%" stop-color="#1E40AF"/><stop offset="100%" stop-color="#F97316"/></linearGradient></defs></svg>
+        <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;"><div style="font-weight:800; font-size:20px;">72%</div><div class="muted" style="font-size:10px;">Mission</div></div>
+      </div>
+      <div style="font-weight:700; font-size:13px; margin-top:12px;">Pricing City: Rate Wars</div>
+    </div>
+  </div>
+  <div class="grid g3" style="margin-bottom:20px;">
+    <div class="card" onclick="navTo('mission')"><div style="font-size:22px;">📘</div><div style="font-weight:700; margin-top:8px; font-size:13.5px;">Continue Mission</div><div class="muted" style="font-size:11.5px;">Claims Reserving · 72%</div></div>
+    <div class="card" onclick="startQuiz('General Insurance')"><div style="font-size:22px;">📝</div><div style="font-weight:700; margin-top:8px; font-size:13.5px;">Daily Quiz</div><div class="muted" style="font-size:11.5px;">5 questions · +50 XP</div></div>
+    <div class="card" onclick="navTo('flashacademy')"><div style="font-size:22px;">🗂️</div><div style="font-weight:700; margin-top:8px; font-size:13.5px;">Daily Flashcards</div><div class="muted" style="font-size:11.5px;">20 due today</div></div>
+    <div class="card" onclick="navTo('arcade')"><div style="font-size:22px;">🕹️</div><div style="font-weight:700; margin-top:8px; font-size:13.5px;">Mini Games</div><div class="muted" style="font-size:11.5px;">${games.length} games waiting</div></div>
+    <div class="card" onclick="navTo('datasethub')"><div style="font-size:22px;">📦</div><div style="font-weight:700; margin-top:8px; font-size:13.5px;">Dataset Lab</div><div class="muted" style="font-size:11.5px;">${datasets.length} real datasets</div></div>
+    <div class="card" onclick="navTo('aitutor')"><div style="font-size:22px;">🤖</div><div style="font-weight:700; margin-top:8px; font-size:13.5px;">Ask AURA</div><div class="muted" style="font-size:11.5px;">Your AI tutor</div></div>
+  </div>
+  <div class="grid g3">
+
+    <div class="glass" style="padding:18px;"><div class="pill" style="background:rgba(30,64,175,.1); color:var(--primary); margin-bottom:10px;">Mission of the Week</div><div style="font-weight:700; font-size:14px;">Catastrophe Island: Flood Pricing</div><p class="muted" style="font-size:12px; margin-top:6px;">Model flood risk and set technical premiums for coastal cities.</p></div>
+    <div class="glass" style="padding:18px;"><div class="pill" style="background:rgba(16,185,129,.12); color:var(--emerald); margin-bottom:10px;">Today's Challenge</div><div style="font-weight:700; font-size:14px;">Fraud Detective — Speed Round</div><p class="muted" style="font-size:12px; margin-top:6px;">Spot 5 fraudulent claims in under 3 minutes for bonus XP.</p></div>
+    <div class="glass" style="padding:18px;"><div class="pill" style="background:rgba(139,92,246,.12); color:var(--purple); margin-bottom:10px;">Upcoming Boss Battle</div><div style="font-weight:700; font-size:14px;">The Combined Ratio Colossus</div><p class="muted" style="font-size:12px; margin-top:6px;">Unlocks in 2 days · Reserving Valley</p></div>
+  </div>`;
+}
+
+/* ============================= 7. WORLD MAP ============================= */
+const worlds=[
+  {name:'Insurance Explorer Island', icon:'🏝️', status:'done', color:'var(--emerald)'},
+  {name:'Pricing City', icon:'🏙️', status:'active', color:'var(--primary)'},
+  {name:'Reserving Valley', icon:'⛰️', status:'active', color:'var(--cyan)'},
+  {name:'Catastrophe Island', icon:'🌪️', status:'active', color:'var(--secondary)'},
+  {name:'Cyber City', icon:'🖥️', status:'locked', color:'var(--purple)'},
+  {name:'Climate Planet', icon:'🌍', status:'locked', color:'var(--emerald)'},
+  {name:'Fraud Forest', icon:'🌲', status:'locked', color:'var(--gold)'},
+  {name:'Reinsurance Kingdom', icon:'🏰', status:'locked', color:'var(--primary)'},
+  {name:'Emerging Risk Galaxy', icon:'🪐', status:'locked', color:'var(--purple)'},
+];
+function renderWorldMap(){
+  return `${pageHeader('World Map','Your journey across General Insurance & Emerging Risks')}
+  <div class="grid g3">
+  ${worlds.map(w=>`
+    <div class="card" style="text-align:center; padding:26px 16px; ${w.status==='locked'?'opacity:.5; cursor:not-allowed;':''}" onclick="${w.status==='locked'?`toast('🔒 Complete previous world to unlock')`:`worldEnter('${w.name}')`}">
+      <div style="width:70px;height:70px;border-radius:22px; margin:0 auto 12px; display:flex; align-items:center; justify-content:center; font-size:32px; background:${w.color}22; ${w.status!=='locked'?`box-shadow:0 0 26px ${w.color}55;`:''}">${w.status==='locked'?'🔒':w.icon}</div>
+      <div style="font-weight:700; font-size:14px;">${w.name}</div>
+      <div class="muted" style="font-size:11.5px; margin-top:4px;">${w.status==='done'?'✅ Completed':w.status==='active'?'🎯 In progress':'Locked'}</div>
+    </div>`).join('')}
+  </div>`;
+}
+function worldEnter(name){ toast('Entering '+name+' 🚀'); navTo('mission'); }
+const missionGameCategory={
+  'General Insurance':'All','Motor Insurance':'Motor','Property Insurance':'Property',
+  'Claims Reserving':'Reserving','Catastrophe Modelling':'Property','Cyber Insurance':'Cyber',
+  'Climate Risk':'Climate','Fraud Detection':'Fraud','Reinsurance':'Analytics','Emerging Risks':'Data Science'
+};
+function openMissionGames(topic){
+  const cat = missionGameCategory[topic] || 'All';
+  navTo('arcade');
+  const chips=[...document.querySelectorAll('#arcadeFilters .chip')];
+  const target = chips.find(c=>c.textContent.trim()===cat);
+  if(target) filterArcade(target, cat);
+  toast(`🕹️ Showing ${cat==='All'?'all':cat} games for ${topic}`);
+}
+
+/* ============================= 8-17. MISSIONS ============================= */
+const missions=[
+  {topic:'General Insurance', icon:'🧭', xp:150, time:'25 min', progress:100},
+  {topic:'Motor Insurance', icon:'🚗', xp:180, time:'30 min', progress:100},
+  {topic:'Property Insurance', icon:'🏠', xp:180, time:'30 min', progress:85},
+  {topic:'Claims Reserving', icon:'📐', xp:220, time:'40 min', progress:72},
+  {topic:'Catastrophe Modelling', icon:'🌪️', xp:240, time:'40 min', progress:30},
+  {topic:'Cyber Insurance', icon:'🖥️', xp:220, time:'35 min', progress:0},
+  {topic:'Climate Risk', icon:'🌍', xp:230, time:'35 min', progress:0},
+  {topic:'Fraud Detection', icon:'🕵️', xp:200, time:'30 min', progress:0},
+  {topic:'Reinsurance', icon:'🏰', xp:260, time:'45 min', progress:0},
+  {topic:'Emerging Risks', icon:'🪐', xp:280, time:'45 min', progress:0},
+];
+function renderMissionList(){
+  return `${pageHeader('Learning Missions','10 storylines across General Insurance & Emerging Risks')}
+  <div class="grid g3">
+  ${missions.map((m,i)=>`
+    <div class="card" onclick="openMission(${i})">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;"><div class="icon-badge" style="background:rgba(30,64,175,.1); font-size:24px;">${m.icon}</div><div class="pill" style="background:rgba(245,158,11,.12); color:var(--gold);">+${m.xp} XP</div></div>
+      <div style="font-weight:700; margin-top:12px; font-size:14.5px;">${m.topic}</div>
+      <div class="muted" style="font-size:11.5px; margin:4px 0 10px;">⏱ ${m.time} · Est. completion</div>
+      <div class="progress-track"><div class="progress-fill" style="width:${m.progress}%"></div></div>
+      <div class="muted" style="font-size:11px; margin-top:6px;">${m.progress}% complete</div>
+    </div>`).join('')}
+  </div>`;
+}
+function openMission(i){
+  currentTab='_detail';
+  const m=missions[i];
+  document.getElementById('mainArea').innerHTML=`
+  <div class="back-btn" onclick="navTo('mission')" style="margin-bottom:14px;">← All Missions</div>
+  <div class="glass" style="padding:0; overflow:hidden; margin-bottom:20px;">
+    <div style="padding:30px; background:linear-gradient(120deg, rgba(30,64,175,.12), rgba(249,115,22,.10));">
+      <div class="pill" style="background:rgba(255,255,255,.6); margin-bottom:10px;">${m.icon} Mission Story</div>
+      <h2 style="font-size:24px;">${m.topic}</h2>
+      <p class="muted" style="font-size:13.5px; margin-top:6px; max-width:600px;">Navigate a realistic insurance scenario, apply core principles, and defend your recommendation to the AI board of examiners.</p>
+      <div style="display:flex; gap:18px; margin-top:16px; flex-wrap:wrap;">
+        <div class="pill" style="background:rgba(255,255,255,.6);">⏱ ${m.time}</div>
+        <div class="pill" style="background:rgba(255,255,255,.6);">⭐ +${m.xp} XP</div>
+        <div class="pill" style="background:rgba(255,255,255,.6);">🎖️ Badge: ${m.topic} Specialist</div>
+      </div>
+    </div>
+  </div>
+  <div class="grid" style="grid-template-columns:2fr 1fr;">
+    <div>
+      <div class="glass" style="padding:22px; margin-bottom:18px;">
+        <h3 style="font-size:15px; margin-bottom:10px;">Learning Objectives</h3>
+        <ul style="padding-left:18px; font-size:13.5px; line-height:2; color:var(--ink-soft);">
+          <li>Explain the core mechanics of ${m.topic.toLowerCase()}</li>
+          <li>Apply pricing / reserving logic to a real dataset</li>
+          <li>Interpret model outputs and communicate risk clearly</li>
+        </ul>
+        <div style="margin-top:14px;"><div class="progress-track"><div class="progress-fill" style="width:${m.progress}%"></div></div><div class="muted" style="font-size:11.5px; margin-top:6px;">${m.progress}% complete</div></div>
+      </div>
+      <div class="grid g2">
+        <div class="card" onclick="openMissionGames('${jsAttr(m.topic)}')"><div style="font-size:20px;">🕹️</div><div style="font-weight:700; font-size:13px; margin-top:6px;">Mini Games</div></div>
+        <div class="card" onclick="navTo('flashacademy')"><div style="font-size:20px;">🗂️</div><div style="font-weight:700; font-size:13px; margin-top:6px;">Flashcards</div></div>
+        <div class="card" onclick="startQuiz('${jsAttr(m.topic)}')"><div style="font-size:20px;">📝</div><div style="font-weight:700; font-size:13px; margin-top:6px;">Quiz</div></div>
+        <div class="card" onclick="navTo('datasethub')"><div style="font-size:20px;">📦</div><div style="font-weight:700; font-size:13px; margin-top:6px;">Dataset</div></div>
+        <div class="card" onclick="navTo('simlab')"><div style="font-size:20px;">🌊</div><div style="font-weight:700; font-size:13px; margin-top:6px;">Simulation</div></div>
+        <div class="card" onclick="toast('📓 Journal entry saved')"><div style="font-size:20px;">📓</div><div style="font-weight:700; font-size:13px; margin-top:6px;">Reflection Journal</div></div>
+      </div>
+    </div>
+    <div>
+      <div class="glass" style="padding:20px; margin-bottom:16px; text-align:center;">
+        <div style="font-size:38px;">🎖️</div>
+        <div style="font-weight:700; font-size:13.5px; margin-top:8px;">${m.topic} Specialist</div>
+        <div class="muted" style="font-size:11.5px;">Badge preview — unlocks at 100%</div>
+      </div>
+      <div class="glass" style="padding:18px;">
+        <div style="font-weight:700; font-size:13.5px; margin-bottom:8px;">🤖 AURA Shortcut</div>
+        <p class="muted" style="font-size:12px; margin-bottom:10px;">Stuck on a concept? Ask AURA to explain it simply.</p>
+        <button class="btn btn-ghost btn-block btn-sm" onclick="navTo('aitutor')">Ask AURA about ${m.topic}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ============================= 18-19. FLASHCARDS ============================= */
+const flashDecks=[
+  {name:'Motor Insurance Basics', count:120, color:'var(--primary)', icon:'🚗'},
+  {name:'Property & Peril Types', count:95, color:'var(--secondary)', icon:'🏠'},
+  {name:'Claims Reserving Methods', count:140, color:'var(--emerald)', icon:'📐'},
+  {name:'Catastrophe Modelling', count:80, color:'var(--purple)', icon:'🌪️'},
+  {name:'Cyber Risk Terms', count:110, color:'var(--cyan)', icon:'🖥️'},
+  {name:'Climate Risk Vocabulary', count:75, color:'var(--emerald)', icon:'🌍'},
+  {name:'Fraud Indicators', count:90, color:'var(--gold)', icon:'🕵️'},
+  {name:'Reinsurance Structures', count:130, color:'var(--primary)', icon:'🏰'},
+];
+function renderFlashAcademy(){
+  return `${pageHeader('Flashcard Academy','1,240+ cards across 8 decks · spaced repetition enabled',`<button class="btn btn-secondary btn-sm" onclick="startFlashcards('Daily Review')">▶ Daily Review (20)</button>`)}
+  <div style="display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap;" id="flashFilters">
+    ${['All','Easy','Medium','Hard','⭐ Bookmarked'].map((f,i)=>`<div class="chip ${i===0?'active':''}" onclick="selectChip(this); toast('Filtered: ${f}')">${f}</div>`).join('')}
+  </div>
+  <div class="grid g4">
+  ${flashDecks.map(d=>`
+    <div class="card" onclick="startFlashcards('${jsAttr(d.name)}')">
+      <div class="icon-badge" style="background:${d.color}1a; font-size:22px;">${d.icon}</div>
+      <div style="font-weight:700; font-size:13.5px; margin-top:10px;">${d.name}</div>
+      <div class="muted" style="font-size:11.5px; margin-top:4px;">${d.count} cards</div>
+      <div class="progress-track" style="margin-top:10px;"><div class="progress-fill" style="width:${Math.floor(Math.random()*70+15)}%; background:${d.color};"></div></div>
+    </div>`).join('')}
+  </div>`;
+}
+const sampleCards=[
+  {front:'What is a "Combined Ratio"?', back:'(Losses + Expenses) ÷ Earned Premium. A ratio under 100% indicates underwriting profit.', example:'An insurer with 65% loss ratio + 28% expense ratio has a 93% combined ratio — profitable underwriting.'},
+  {front:'Define "IBNR"', back:"Incurred But Not Reported — reserves for claims that have occurred but haven't yet been reported to the insurer.", example:"A worker's comp injury reported 8 months after the accident date falls under IBNR reserving."},
+  {front:'What is a "Deductible"?', back:'The amount the policyholder pays out-of-pocket before the insurer covers the remaining loss.', example:'A $1,000 deductible on a $5,000 claim means the insurer pays $4,000.'},
+  {front:'What is "Moral Hazard"?', back:'The tendency for insured parties to take more risk because they are protected from the full financial consequences.', example:'A driver with full comprehensive coverage may drive less cautiously in a high-theft area.'},
+];
+let curDeck='', curCardIdx=0;
+function startFlashcards(deckName){
+  currentTab='_detail';
+  curDeck=deckName; curCardIdx=0;
+  showScreen('mainapp');
+  renderCardView();
+}
+function renderCardView(){
+  const c=sampleCards[curCardIdx % sampleCards.length];
+  document.getElementById('mainArea').innerHTML=`
+  <div class="back-btn" onclick="navTo('flashacademy')" style="margin-bottom:14px;">← ${curDeck}</div>
+  <div style="max-width:560px; margin:0 auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <span class="muted" style="font-size:12.5px;">Card ${(curCardIdx%sampleCards.length)+1} of ${sampleCards.length}</span>
+      <span class="pill" style="background:rgba(30,64,175,.1); color:var(--primary);">Spaced repetition: Day 3</span>
+    </div>
+    <div class="flip-card" id="flipCard" onclick="this.classList.toggle('flipped')" style="height:280px; margin-bottom:20px;">
+      <div class="flip-inner">
+        <div class="flip-face glass"><div class="muted" style="font-size:11px; margin-bottom:12px;">TAP TO FLIP</div><div style="font-weight:700; font-size:19px;">${c.front}</div><div style="margin-top:16px; font-size:26px;">🔊</div></div>
+        <div class="flip-face glass flip-back" style="background:linear-gradient(135deg, rgba(30,64,175,.12), rgba(249,115,22,.08));"><div style="font-weight:600; font-size:15.5px; line-height:1.6;">${c.back}</div><div class="muted" style="font-size:12px; margin-top:14px; font-style:italic;">💡 ${c.example}</div></div>
+      </div>
+    </div>
+    <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+      <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); toast('💡 Hint revealed')">Show Hint</button>
+      <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); navTo('aitutor')">✨ Explain with AI</button>
+      <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); toast('⭐ Saved to bookmarks')">Save</button>
+    </div>
+    <div style="display:flex; gap:10px; margin-top:16px;">
+      <button class="btn btn-outline btn-block" onclick="nextCard()">😖 Mark Difficult</button>
+      <button class="btn btn-primary btn-block" onclick="nextCard()">😄 Mark Easy</button>
+    </div>
+  </div>`;
+}
+function nextCard(){ curCardIdx++; if(curCardIdx% sampleCards.length===0){confetti(40); addXP(40,'Flashcard deck review');} renderCardView(); }
+
+/* ============================= QUIZ ENGINE ============================= */
+const quizPool=[
+  {q:'What does "Combined Ratio" measure?', options:['(Losses + Expenses) ÷ Earned Premium','Premium ÷ Number of policies','Reserves ÷ Total assets','Claims paid ÷ Claims reported'], correct:0, explain:'Combined Ratio = (Incurred Losses + Expenses) ÷ Earned Premium. Below 100% signals underwriting profit.'},
+  {q:'What does "IBNR" stand for?', options:['Insured But Not Renewed','Incurred But Not Reported','Indemnity Before Notice Received','Interest-Based Net Reserve'], correct:1, explain:'IBNR = Incurred But Not Reported — reserves set aside for claims that have happened but not yet been reported.'},
+  {q:'A policyholder pays the first $1,000 of every claim themselves. This is called the:', options:['Premium','Deductible','Excess Layer','Retention Bonus'], correct:1, explain:'A deductible is the amount the policyholder covers before the insurer pays the remainder.'},
+  {q:'Which pricing factor is most directly tied to Motor Insurance risk?', options:['Building material','Driver age & claims history','Cyber attack frequency','Crop yield'], correct:1, explain:'Motor pricing relies heavily on driver-specific rating factors like age, claims history, and vehicle usage.'},
+  {q:'"Moral Hazard" describes:', options:['Fraudulent claims only','Increased risk-taking because losses are insured','A type of reinsurance treaty','A climate risk model'], correct:1, explain:'Moral hazard is the tendency to take more risk when protected from the full financial consequences.'},
+  {q:'In Claims Reserving, a "loss triangle" is used to:', options:['Plot claim locations on a map','Project how claims develop over time','Calculate policyholder premiums','Detect fraudulent claims'], correct:1, explain:'Loss triangles track how claims for each accident period develop over successive valuation periods, used for chain-ladder projections.'},
+  {q:'Which of these is an example of an "emerging risk" for insurers?', options:['Fire damage','Cyber ransomware attacks','Windshield cracks','Standard theft claims'], correct:1, explain:'Cyber risk is a fast-evolving "emerging risk" — historical data is limited, making it harder to price accurately.'},
+  {q:'What is "Reinsurance"?', options:['Insurance bought by an insurer to offload risk','A second policy sold to the same customer','A government insurance subsidy','A claims processing system'], correct:0, explain:'Reinsurance is insurance that insurance companies buy to protect themselves from large or catastrophic losses.'},
+  {q:'A "Loss Ratio" of 65% means:', options:['65% of premiums went to profit','65 cents of every premium dollar was paid out in claims','The insurer lost 65% of its policies','65% of claims were denied'], correct:1, explain:'Loss Ratio = Incurred Losses ÷ Earned Premium — 65% means $0.65 of every premium dollar covered claims.'},
+  {q:'Catastrophe modelling is primarily used to estimate:', options:['Employee salaries','Potential losses from large-scale events like floods or earthquakes','Customer satisfaction scores','Marketing budget'], correct:1, explain:'Cat models simulate extreme events (floods, hurricanes, earthquakes) to estimate potential insured losses.'},
+];
+let quizState=null;
+function startQuiz(topic){
+  currentTab='_detail';
+  showScreen('mainapp');
+  const shuffled=[...quizPool].sort(()=>Math.random()-0.5).slice(0,5);
+  quizState={topic, questions:shuffled, idx:0, score:0, answered:false};
+  renderQuizQuestion();
+}
+function renderQuizQuestion(){
+  const s=quizState, q=s.questions[s.idx];
+  document.getElementById('mainArea').innerHTML=`
+  <div class="back-btn" onclick="navTo('mission')" style="margin-bottom:14px;">← Exit Quiz</div>
+  <div style="max-width:600px; margin:0 auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <span class="muted" style="font-size:12.5px;">${s.topic} Quiz · Question ${s.idx+1} of ${s.questions.length}</span>
+      <span class="pill" style="background:rgba(245,158,11,.12); color:var(--gold);">Score: ${s.score}/${s.questions.length}</span>
+    </div>
+    <div class="progress-track" style="margin-bottom:20px;"><div class="progress-fill" style="width:${(s.idx/s.questions.length)*100}%"></div></div>
+    <div class="glass" style="padding:26px;">
+      <h3 style="font-size:17px; margin-bottom:18px; line-height:1.5;">${q.q}</h3>
+      <div id="quizOptions" style="display:flex; flex-direction:column; gap:10px;">
+        ${q.options.map((opt,i)=>`<button class="btn btn-outline" style="justify-content:flex-start; text-align:left;" onclick="selectQuizAnswer(${i})">${String.fromCharCode(65+i)}. ${opt}</button>`).join('')}
+      </div>
+      <div id="quizExplain" style="display:none; margin-top:16px; padding:14px; border-radius:12px; background:rgba(30,64,175,.06); font-size:13px; line-height:1.6;"></div>
+      <div style="display:flex; justify-content:flex-end; margin-top:18px;">
+        <button class="btn btn-primary" id="quizNextBtn" style="display:none;" onclick="quizNext()">${s.idx===s.questions.length-1?'See Results →':'Next Question →'}</button>
+      </div>
+    </div>
+  </div>`;
+}
+function selectQuizAnswer(i){
+  const s=quizState;
+  if(!s || !document.getElementById('quizOptions')) return; // guard: quiz screen no longer active
+  if(s.answered) return;
+  s.answered=true;
+  const q=s.questions[s.idx];
+  const correct = i===q.correct;
+  if(correct) s.score++;
+  const btns=document.querySelectorAll('#quizOptions .btn');
+  btns.forEach((b,bi)=>{
+    b.style.pointerEvents='none';
+    if(bi===q.correct){ b.style.background='rgba(16,185,129,.15)'; b.style.borderColor='var(--emerald)'; b.style.color='var(--emerald)'; }
+    else if(bi===i){ b.style.background='rgba(239,68,68,.12)'; b.style.borderColor='#EF4444'; b.style.color='#EF4444'; }
+  });
+  const ex=document.getElementById('quizExplain');
+  if(!ex) return;
+  ex.style.display='block';
+  ex.innerHTML=`${correct?'✅ Correct!':'❌ Not quite.'} ${q.explain}`;
+  const nextBtn=document.getElementById('quizNextBtn');
+  if(nextBtn) nextBtn.style.display='inline-flex';
+}
+function quizNext(){
+  const s=quizState;
+  if(s.idx<s.questions.length-1){
+    s.idx++; s.answered=false;
+    renderQuizQuestion();
+  } else {
+    finishQuiz();
+  }
+}
+function finishQuiz(){
+  const s=quizState;
+  const xpEarned = s.score*20;
+  confetti(50);
+  userState.completedQuizzes++;
+  document.getElementById('mainArea').innerHTML=`
+  <div style="max-width:520px; margin:60px auto; text-align:center;">
+    <div class="glass" style="padding:36px;">
+      <div style="font-size:56px;">${s.score>=4?'🏆':s.score>=3?'🎉':'📘'}</div>
+      <h2 style="font-size:22px; margin-top:12px;">Quiz Complete!</h2>
+      <p class="muted" style="font-size:13.5px; margin-top:6px;">${s.topic} · You scored ${s.score} out of ${s.questions.length}</p>
+      <div class="pill" style="background:rgba(245,158,11,.12); color:var(--gold); margin-top:14px;">⭐ +${xpEarned} XP earned</div>
+      <div style="display:flex; gap:10px; justify-content:center; margin-top:24px;">
+        <button class="btn btn-outline" onclick="navTo('mission')">Back to Missions</button>
+        <button class="btn btn-primary" onclick="startQuiz('${jsAttr(s.topic)}')">Try Again</button>
+      </div>
+    </div>
+  </div>`;
+  addXP(xpEarned, s.topic+' Quiz');
+}
+
+/* ============================= 20-27. ARCADE + GAMES ============================= */
+const games=[
+  // Motor
+  {name:'Premium Builder', cat:'Motor', xp:60, icon:'🧾'},
+  {name:'Rate the Risk', cat:'Motor', xp:55, icon:'🚦'},
+  {name:'Telematics Tracker', cat:'Motor', xp:65, icon:'📡'},
+  {name:'No-Claims Bonus Sim', cat:'Motor', xp:50, icon:'🚙'},
+  {name:'Collision Cost Estimator', cat:'Motor', xp:70, icon:'💥'},
+  // Property
+  {name:'Catastrophe Response', cat:'Property', xp:95, icon:'🌪️'},
+  {name:'Peril Match-Up', cat:'Property', xp:55, icon:'🏚️'},
+  {name:'Underwriting Inspector', cat:'Property', xp:75, icon:'🔍'},
+  {name:'Sum Insured Sizing', cat:'Property', xp:60, icon:'🏗️'},
+  {name:'Home Hazard Hunt', cat:'Property', xp:65, icon:'🏠'},
+  // Cyber
+  {name:'Cyber Investigation', cat:'Cyber', xp:90, icon:'🖥️'},
+  {name:'Phishing Hunt', cat:'Cyber', xp:65, icon:'🎣'},
+  {name:'Breach Cost Calculator', cat:'Cyber', xp:80, icon:'🔐'},
+  {name:'Ransomware Response Drill', cat:'Cyber', xp:100, icon:'🧯'},
+  {name:'Firewall Defender', cat:'Cyber', xp:70, icon:'🛡️'},
+  // Climate
+  {name:'Flood Zone Puzzle', cat:'Climate', xp:70, icon:'🌊'},
+  {name:'Wildfire Watch', cat:'Climate', xp:85, icon:'🔥'},
+  {name:'Cyclone Tracker', cat:'Climate', xp:80, icon:'🌀'},
+  {name:'Drought Index Builder', cat:'Climate', xp:75, icon:'🌾'},
+  {name:'Sea Level Stress Test', cat:'Climate', xp:90, icon:'🌡️'},
+  // Fraud
+  {name:'Fraud Detective', cat:'Fraud', xp:80, icon:'🕵️'},
+  {name:'Red Flag Spotter', cat:'Fraud', xp:60, icon:'🚩'},
+  {name:'Claim Pattern Sleuth', cat:'Fraud', xp:85, icon:'🔎'},
+  {name:'Staged Accident ID', cat:'Fraud', xp:75, icon:'🚗'},
+  // Reserving
+  {name:'Claim Triangle Builder', cat:'Reserving', xp:100, icon:'📐'},
+  {name:'Reserve Run-Off', cat:'Reserving', xp:85, icon:'⏳'},
+  {name:'Chain-Ladder Challenge', cat:'Reserving', xp:95, icon:'🪜'},
+  {name:'IBNR Estimator', cat:'Reserving', xp:90, icon:'📦'},
+  // Data Science
+  {name:'SQL Escape Room', cat:'Data Science', xp:110, icon:'🗄️'},
+  {name:'Python Debug Sprint', cat:'Data Science', xp:95, icon:'🐍'},
+  {name:'Data Cleaning Dash', cat:'Data Science', xp:70, icon:'🧹'},
+  {name:'Feature Engineering Lab', cat:'Data Science', xp:100, icon:'⚙️'},
+  // Analytics
+  {name:'Dashboard Builder', cat:'Analytics', xp:75, icon:'📊'},
+  {name:'Loss Ratio Lab', cat:'Analytics', xp:70, icon:'📉'},
+  {name:'Combined Ratio Challenge', cat:'Analytics', xp:80, icon:'⚖️'},
+  {name:'KPI Storyteller', cat:'Analytics', xp:65, icon:'📈'},
+];
+function renderArcade(){
+  return `${pageHeader('Mini Game Arcade',`${games.length} games across 8 skill categories`)}
+  <div style="display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap;" id="arcadeFilters">
+    ${['All','Motor','Property','Cyber','Climate','Fraud','Reserving','Data Science','Analytics'].map((c,i)=>`<div class="chip ${i===0?'active':''}" onclick="filterArcade(this,'${c}')">${c}</div>`).join('')}
+  </div>
+  <div class="grid g4" id="arcadeGrid">${games.map(gameCardHtml).join('')}</div>`;
+}
+function gameCardHtml(g){
+  return `<div class="card" onclick="playGame('${jsAttr(g.name)}')">
+    <div class="icon-badge" style="background:rgba(30,64,175,.1); font-size:24px;">${g.icon}</div>
+    <div style="font-weight:700; font-size:13.5px; margin-top:10px;">${g.name}</div>
+    <div class="muted" style="font-size:11px; margin:4px 0 8px;">${g.cat}</div>
+    <div class="pill" style="background:rgba(245,158,11,.12); color:var(--gold);">+${g.xp} XP</div>
+  </div>`;
+}
+function filterArcade(el,cat){
+  document.querySelectorAll('#arcadeFilters .chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  const filtered = cat==='All'? games : games.filter(g=>g.cat===cat);
+  document.getElementById('arcadeGrid').innerHTML = filtered.map(gameCardHtml).join('') || `<p class="muted">No games in this category yet.</p>`;
+}
+let gameCompleted=false;
+/* ============================= REAL PLAYABLE MINI-GAMES ============================= */
+/* Each category gets a short "scenario classification" round: read a real-world
+   insurance scenario, pick the correct call. This replaces the old fake
+   "Simulate Round Complete" placeholder with something you actually play. */
+const gameScenarioConfig={
+  Motor:{labels:['Approve','Send to Underwriter'], scenarios:[
+    {text:'35-year-old driver, 10 years claim-free, applying for standard comprehensive cover.', correct:0, explain:'Clean long-term history at standard risk — safe to approve.'},
+    {text:'17-year-old applicant with 2 speeding tickets requesting cover for a high-performance sports car.', correct:1, explain:'Young driver + performance vehicle + violations is a classic underwriter referral.'},
+    {text:'Fleet of 50 delivery vans, no major claims in 3 years, renewing existing policy.', correct:0, explain:'Stable renewal with a strong claims history — approve as standard.'},
+    {text:'Driver with a DUI conviction 6 months ago applying for new coverage.', correct:1, explain:'A recent DUI is a material risk factor that needs underwriter review.'},
+    {text:'Family sedan, garage-parked, low annual mileage, clean record.', correct:0, explain:'Low exposure, low risk — straightforward approval.'},
+    {text:'Modified vehicle with an aftermarket turbo; driver has 3 at-fault accidents.', correct:1, explain:'Vehicle modifications plus a poor claims record warrant closer underwriting.'},
+  ]},
+  Property:{labels:['Standard Rate','Flag for Inspection'], scenarios:[
+    {text:'Single-family home, updated wiring, no prior claims, in a low-risk zone.', correct:0, explain:'Well-maintained, low-hazard property — standard rating applies.'},
+    {text:'Older home with original 1960s wiring in a flood-prone area.', correct:1, explain:'Aging electrical systems plus flood exposure justify a physical inspection.'},
+    {text:'Newly built condo unit with modern fire suppression systems.', correct:0, explain:'Modern construction and safety systems reduce risk — standard rate fits.'},
+    {text:'Warehouse storing flammable chemicals with no sprinkler system.', correct:1, explain:'Hazardous materials without suppression systems need inspection before binding.'},
+    {text:'Suburban home, recent roof replacement, no claims history.', correct:0, explain:'Recent upgrades and a clean history support standard pricing.'},
+    {text:'Coastal property with a documented history of storm damage claims.', correct:1, explain:'Repeat storm losses in a coastal zone call for a fresh inspection.'},
+  ]},
+  Cyber:{labels:['Low Risk','High Risk'], scenarios:[
+    {text:'Company uses MFA, encrypts data at rest, and patches vulnerabilities within 48 hours.', correct:0, explain:'Strong security hygiene meaningfully lowers breach likelihood.'},
+    {text:'Company has no MFA, runs outdated software, and stores unencrypted customer data.', correct:1, explain:'Multiple unpatched control gaps make a breach far more likely.'},
+    {text:'Small business with a basic firewall and regular offsite backups.', correct:0, explain:'Basic but present controls put this in the lower-risk band.'},
+    {text:'Healthcare provider running legacy systems with no incident response plan.', correct:1, explain:'Legacy systems plus no IR plan is a high-severity cyber exposure.'},
+    {text:'Tech startup with SOC 2 compliance and routine penetration testing.', correct:0, explain:'Independently verified controls indicate mature security posture.'},
+    {text:'Retailer that suffered a breach last year with no remediation since.', correct:1, explain:'Unremediated prior breach is a strong signal of high ongoing risk.'},
+  ]},
+  Climate:{labels:['Standard Premium','Load Premium'], scenarios:[
+    {text:'Property 50km inland, moderate rainfall region, no flood history.', correct:0, explain:'Low climate exposure supports a standard premium.'},
+    {text:'Coastal property sitting in a Category 3+ hurricane zone.', correct:1, explain:'Severe storm exposure requires a catastrophe loading.'},
+    {text:'Farm in a region with stable historical rainfall patterns.', correct:0, explain:'Predictable rainfall history means lower climate volatility.'},
+    {text:'Property in a wildfire-prone area with dry vegetation nearby.', correct:1, explain:'Wildfire proximity is a material rating factor that needs loading.'},
+    {text:'Urban apartment building on high ground with good drainage.', correct:0, explain:'Elevation and drainage reduce flood risk — standard premium fits.'},
+    {text:'Agricultural land in a region experiencing worsening drought trends.', correct:1, explain:'A worsening drought trend increases expected crop loss frequency.'},
+  ]},
+  Fraud:{labels:['Legitimate','Flag as Fraud'], scenarios:[
+    {text:'Claim matches policy details with a consistent timeline for a minor fender-bender.', correct:0, explain:'Consistent, low-severity claim with no red flags — looks legitimate.'},
+    {text:'Claim for a total loss filed just days after the policy started, with no witnesses.', correct:1, explain:'Early total loss with no corroboration is a textbook fraud indicator.'},
+    {text:'Long-time customer files a modest claim after a well-documented storm.', correct:0, explain:'Established customer plus external corroborating event — legitimate.'},
+    {text:'Multiple claims from the same address under different names, same repair shop.', correct:1, explain:'Shared address and repair shop across "different" claimants suggests a ring.'},
+    {text:'Claimant provides photos, a police report, and consistent medical records.', correct:0, explain:'Strong, consistent documentation supports a legitimate claim.'},
+    {text:'Claim amount is far above typical repair costs for similar reported damage.', correct:1, explain:'Inflated claim value relative to damage severity warrants investigation.'},
+  ]},
+  Reserving:{labels:['Adequately Reserved','Under-Reserved'], scenarios:[
+    {text:'Claim triangle shows stable development factors matching historical trends.', correct:0, explain:'Stable development patterns suggest current reserves are adequate.'},
+    {text:'Recent large claims show development factors trending sharply upward.', correct:1, explain:'Rising development factors signal reserves may need strengthening.'},
+    {text:'IBNR estimate aligns closely with actuarial projections for the accident year.', correct:0, explain:'Close alignment with projections indicates adequate reserving.'},
+    {text:'A spike in late-reported claims suggests reserves haven\'t caught up yet.', correct:1, explain:'Late-reported claim spikes are a classic under-reserving warning sign.'},
+    {text:'Loss development pattern is consistent with the last five accident years.', correct:0, explain:'Consistency with prior years supports the current reserve level.'},
+    {text:'A new litigation trend is increasing claim severity beyond current reserves.', correct:1, explain:'Emerging severity trends not yet reflected in reserves mean under-reserving.'},
+  ]},
+  'Data Science':{labels:['Clean Data','Needs Cleaning'], scenarios:[
+    {text:'Dataset has consistent formatting, no missing values, and correct data types.', correct:0, explain:'No structural issues detected — ready for analysis.'},
+    {text:'Dataset has 15% missing values and inconsistent date formats.', correct:1, explain:'Missing values and inconsistent formats need cleaning before modelling.'},
+    {text:'All categorical fields match a validated reference list.', correct:0, explain:'Validated categories mean no cleanup needed there.'},
+    {text:'Duplicate rows and negative values found in a positive-only field.', correct:1, explain:'Duplicates and invalid values must be resolved before analysis.'},
+    {text:'Outliers have been reviewed and documented as valid extreme events.', correct:0, explain:'Reviewed and justified outliers don\'t need further cleaning.'},
+    {text:'Column headers are inconsistent across the files being merged.', correct:1, explain:'Header mismatches will break joins — needs standardizing first.'},
+  ]},
+  Analytics:{labels:['Healthy KPI','Needs Attention'], scenarios:[
+    {text:'Combined ratio has stayed steady around 92% over the last four quarters.', correct:0, explain:'Stable, sub-100% combined ratio indicates healthy underwriting.'},
+    {text:'Loss ratio jumped from 60% to 95% in a single quarter.', correct:1, explain:'A sharp jump like this needs investigation before it repeats.'},
+    {text:'Claims frequency is in line with the five-year seasonal average.', correct:0, explain:'Matching seasonal norms suggests nothing unusual is happening.'},
+    {text:'Expense ratio has risen faster than premium growth for three straight quarters.', correct:1, explain:'Expenses outpacing premium growth erodes margin over time.'},
+    {text:'Policy retention rate is stable above 85%.', correct:0, explain:'Strong, stable retention is a healthy sign.'},
+    {text:'Customer complaint volume doubled right after a rate change.', correct:1, explain:'A complaint spike tied to a rate change needs a closer look.'},
+  ]},
+};
+let gameState=null;
+function playGame(name){
+  currentTab='_detail';
+  showScreen('mainapp');
+  const g = games.find(g=>g.name===name) || {xp:70, cat:'Motor', icon:'🕹️'};
+  const cfg = gameScenarioConfig[g.cat] || gameScenarioConfig['Motor'];
+  const rounds = [...cfg.scenarios].sort(()=>Math.random()-0.5).slice(0,5);
+  gameState = {name, xp:g.xp, icon:g.icon||'🕹️', labels:cfg.labels, rounds, idx:0, score:0, answered:false};
+  renderGameRound();
+}
+function renderGameRound(){
+  const s=gameState, r=s.rounds[s.idx];
+  document.getElementById('mainArea').innerHTML=`
+  <div class="back-btn" onclick="navTo('arcade')" style="margin-bottom:14px;">← Arcade</div>
+  <div style="max-width:600px; margin:0 auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <span class="muted" style="font-size:12.5px;">${s.icon} ${s.name} · Scenario ${s.idx+1} of ${s.rounds.length}</span>
+      <span class="pill" style="background:rgba(245,158,11,.12); color:var(--gold);">Score: ${s.score}/${s.rounds.length}</span>
+    </div>
+    <div class="progress-track" style="margin-bottom:20px;"><div class="progress-fill" style="width:${(s.idx/s.rounds.length)*100}%"></div></div>
+    <div class="glass" style="padding:26px;">
+      <div class="pill" style="background:rgba(30,64,175,.1); color:var(--primary); margin-bottom:14px;">Make the call</div>
+      <h3 style="font-size:16px; margin-bottom:20px; line-height:1.6; font-weight:600;">${r.text}</h3>
+      <div id="gameOptions" style="display:flex; gap:12px; flex-wrap:wrap;">
+        <button class="btn btn-outline" style="flex:1; min-width:160px;" onclick="selectGameAnswer(0)">${s.labels[0]}</button>
+        <button class="btn btn-outline" style="flex:1; min-width:160px;" onclick="selectGameAnswer(1)">${s.labels[1]}</button>
+      </div>
+      <div id="gameExplain" style="display:none; margin-top:16px; padding:14px; border-radius:12px; background:rgba(30,64,175,.06); font-size:13px; line-height:1.6;"></div>
+      <div style="display:flex; justify-content:flex-end; margin-top:18px;">
+        <button class="btn btn-primary" id="gameNextBtn" style="display:none;" onclick="gameNext()">${s.idx===s.rounds.length-1?'See Results →':'Next Scenario →'}</button>
+      </div>
+    </div>
+  </div>`;
+}
+function selectGameAnswer(i){
+  const s=gameState;
+  if(!s || !document.getElementById('gameOptions')) return;
+  if(s.answered) return;
+  s.answered=true;
+  const r=s.rounds[s.idx];
+  const correct = i===r.correct;
+  if(correct) s.score++;
+  const btns=document.querySelectorAll('#gameOptions .btn');
+  btns.forEach((b,bi)=>{
+    b.style.pointerEvents='none';
+    if(bi===r.correct){ b.style.background='rgba(16,185,129,.15)'; b.style.borderColor='var(--emerald)'; b.style.color='var(--emerald)'; }
+    else if(bi===i){ b.style.background='rgba(239,68,68,.12)'; b.style.borderColor='#EF4444'; b.style.color='#EF4444'; }
+  });
+  const ex=document.getElementById('gameExplain');
+  if(!ex) return;
+  ex.style.display='block';
+  ex.innerHTML=`${correct?'✅ Correct call!':'❌ Not quite.'} ${r.explain}`;
+  const nb=document.getElementById('gameNextBtn');
+  if(nb) nb.style.display='inline-flex';
+}
+function gameNext(){
+  const s=gameState;
+  if(!s) return;
+  if(s.idx<s.rounds.length-1){ s.idx++; s.answered=false; renderGameRound(); }
+  else finishGame();
+}
+function finishGame(){
+  currentTab='_detail';
+  const s=gameState;
+  const accuracy = Math.round((s.score/s.rounds.length)*100);
+  const xpEarned = Math.max(15, Math.round(s.xp*(s.score/s.rounds.length)));
+  const coinsEarned = Math.round(xpEarned/4);
+  confetti(60);
+  userState.completedGames++;
+  document.getElementById('mainArea').innerHTML=`
+  <div style="max-width:520px; margin:60px auto; text-align:center;">
+    <div class="glass" style="padding:36px;">
+      <div style="font-size:56px;">${accuracy>=80?'🏆':accuracy>=60?'🎉':'💪'}</div>
+      <h2 style="font-size:22px; margin-top:12px;">${s.name} — Round Complete!</h2>
+      <p class="muted" style="font-size:13.5px; margin-top:6px;">You got ${s.score} of ${s.rounds.length} right · ${accuracy}% accuracy</p>
+      <div style="display:flex; gap:10px; justify-content:center; margin-top:14px;">
+        <div class="pill" style="background:rgba(245,158,11,.12); color:var(--gold);">⭐ +${xpEarned} XP</div>
+        <div class="pill" style="background:rgba(16,185,129,.12); color:var(--emerald);">🪙 +${coinsEarned}</div>
+      </div>
+      <div style="display:flex; gap:10px; justify-content:center; margin-top:24px;">
+        <button class="btn btn-outline" onclick="navTo('arcade')">Back to Arcade</button>
+        <button class="btn btn-primary" onclick="playGame('${jsAttr(s.name)}')">Play Again</button>
+      </div>
+    </div>
+  </div>`;
+  addXP(xpEarned, s.name);
+  addCoins(coinsEarned);
+}
+
+/* ============================= 28-29. DATASET HUB ============================= */
+const datasets=[
+  {name:'Motor Claims — Tamil Nadu 2019-2024', src:'CAS Open Data', rows:'482K', cols:24, diff:'Beginner', country:'India', icon:'🚗', cat:'Motor', trending:true},
+  {name:'Property Flood Losses — Chennai', src:'Kaggle', rows:'96K', cols:18, diff:'Intermediate', country:'India', icon:'🌊', cat:'Climate', trending:true},
+  {name:'Cyber Breach Incidents Global', src:'CAS Open Data', rows:'54K', cols:31, diff:'Advanced', country:'Global', icon:'🖥️', cat:'Cyber', trending:false},
+  {name:'Crop Insurance Drought Claims', src:'World Bank', rows:'210K', cols:20, diff:'Intermediate', country:'India', icon:'🌾', cat:'Climate', trending:false},
+  {name:'Wildfire Property Losses — California', src:'Kaggle', rows:'128K', cols:26, diff:'Advanced', country:'USA', icon:'🔥', cat:'Property', trending:true},
+  {name:'Health Insurance Fraud Claims', src:'CAS Open Data', rows:'340K', cols:22, diff:'Intermediate', country:'USA', icon:'🕵️', cat:'Property', trending:false},
+];
+function renderDatasetHub(){
+  return `${pageHeader('Dataset Hub','Kaggle-style library of real insurance datasets','<input id="datasetSearch" oninput="searchDatasets()" placeholder="🔍 Search datasets…" style="width:220px;">')}
+  <div style="display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap;" id="datasetFilters">
+    ${['All','Motor','Property','Cyber','Climate','🔥 Trending'].map((c,i)=>`<div class="chip ${i===0?'active':''}" onclick="filterDatasets(this,'${c}')">${c}</div>`).join('')}
+  </div>
+  <div class="grid g3" id="datasetGrid">${datasets.map(datasetCardHtml).join('')}</div>`;
+}
+function datasetCardHtml(d){
+  const i=datasets.indexOf(d);
+  return `<div class="card" onclick="openDataset(${i})">
+      <div style="display:flex; justify-content:space-between;"><div class="icon-badge" style="background:rgba(30,64,175,.1); font-size:22px;">${d.icon}</div><span onclick="event.stopPropagation(); toast('⭐ Added to favorites')" style="cursor:pointer;">☆</span></div>
+      <div style="font-weight:700; font-size:13.5px; margin-top:10px;">${d.name}</div>
+      <div class="muted" style="font-size:11.5px; margin-top:4px;">${d.src} · ${d.country}</div>
+      <div style="display:flex; gap:6px; margin-top:10px; flex-wrap:wrap;">
+        <span class="pill" style="background:rgba(30,64,175,.08);">${d.rows} rows</span>
+        <span class="pill" style="background:rgba(30,64,175,.08);">${d.cols} cols</span>
+        <span class="pill" style="background:rgba(16,185,129,.12); color:var(--emerald);">${d.diff}</span>
+      </div>
+    </div>`;
+}
+function filterDatasets(el,cat){
+  document.querySelectorAll('#datasetFilters .chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  let filtered;
+  if(cat==='All') filtered=datasets;
+  else if(cat==='🔥 Trending') filtered=datasets.filter(d=>d.trending);
+  else filtered=datasets.filter(d=>d.cat===cat);
+  document.getElementById('datasetGrid').innerHTML = filtered.map(datasetCardHtml).join('') || `<p class="muted">No datasets in this category yet.</p>`;
+}
+function searchDatasets(){
+  const searchEl=document.getElementById('datasetSearch');
+  const gridEl=document.getElementById('datasetGrid');
+  if(!searchEl || !gridEl) return;
+  const q=searchEl.value.trim().toLowerCase();
+  const activeChip=document.querySelector('#datasetFilters .chip.active');
+  const cat = activeChip ? activeChip.textContent.trim() : 'All';
+  let base = cat==='All' ? datasets : cat==='🔥 Trending' ? datasets.filter(d=>d.trending) : datasets.filter(d=>d.cat===cat);
+  const filtered = q ? base.filter(d=>d.name.toLowerCase().includes(q) || d.src.toLowerCase().includes(q) || d.country.toLowerCase().includes(q)) : base;
+  gridEl.innerHTML = filtered.map(datasetCardHtml).join('') || `<p class="muted">No datasets match "${q}".</p>`;
+}
+function openDataset(i){
+  currentTab='_detail';
+  const d=datasets[i];
+  showScreen('mainapp');
+  const previewRows=generateDatasetRows(d,20);
+  const gen=datasetGenerators[d.cat]||datasetGenerators.Motor;
+  document.getElementById('mainArea').innerHTML=`
+  <div class="back-btn" onclick="navTo('datasethub')" style="margin-bottom:14px;">← Dataset Hub</div>
+  <div class="glass" style="padding:26px; margin-bottom:18px;">
+    <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:14px;">
+      <div><h2 style="font-size:20px;">${d.icon} ${d.name}</h2><p class="muted" style="font-size:12.5px; margin-top:4px;">${d.src} · ${d.rows} rows on record · ${d.cols} columns · ${d.country}</p></div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" onclick="downloadCSV(${i})">⬇ Download CSV (500 rows)</button><button class="btn btn-primary btn-sm" onclick="navTo('edaplayground')">Open in EDA Lab</button></div>
+    </div>
+  </div>
+  <div class="glass" style="padding:20px; margin-bottom:18px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;"><h3 style="font-size:14px;">Data Preview</h3><span class="muted" style="font-size:11.5px;">Showing 20 of 500 downloadable rows</span></div>
+    <div style="max-height:340px; overflow:auto; border-radius:10px;">
+    <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
+      <thead><tr>${gen.headers.map(h=>`<th style="position:sticky; top:0; background:var(--paper); text-align:left; padding:8px; border-bottom:1px solid rgba(30,64,175,.15); color:var(--ink-soft); white-space:nowrap;">${h}</th>`).join('')}</tr></thead>
+      <tbody>${previewRows.map(r=>`<tr>${r.map(v=>`<td style="padding:7px 8px; border-bottom:1px solid rgba(30,64,175,.06); white-space:nowrap;">${v}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table>
+    </div>
+  </div>
+  <div class="grid g4">
+    <div class="card" onclick="downloadNotebook(${i})"><div style="font-size:20px;">📓</div><div style="font-weight:700; font-size:12.5px; margin-top:6px;">Download Notebook (.ipynb)</div></div>
+    <div class="card" onclick="downloadExcel(${i})"><div style="font-size:20px;">📗</div><div style="font-weight:700; font-size:12.5px; margin-top:6px;">Download Excel (.xlsx)</div></div>
+    <div class="card" onclick="downloadSQL(${i})"><div style="font-size:20px;">🗄️</div><div style="font-weight:700; font-size:12.5px; margin-top:6px;">Download SQL Script</div></div>
+    <div class="card" onclick="downloadPowerBI(${i})"><div style="font-size:20px;">📊</div><div style="font-weight:700; font-size:12.5px; margin-top:6px;">Download Power BI Query</div></div>
+  </div>
+  <div class="glass" style="padding:20px; margin-top:18px;">
+    <h3 style="font-size:14px; margin-bottom:10px;">✨ AURA's Dataset Summary</h3>
+    <p class="muted" style="font-size:13px; line-height:1.7;">This dataset captures policy-level exposure and claim outcomes, ideal for practicing frequency-severity modelling. Try starting with a claim-flag distribution by region before moving to a GLM.</p>
+  </div>`;
+}
+
+/* ---------- Procedural data generation + real file downloads ---------- */
+const datasetGenerators={
+  Motor:{headers:['policy_id','driver_age','region','vehicle_type','sum_insured','premium','claim_flag','peril_type'],
+    gen(i){
+      const age=18+Math.floor(Math.random()*50);
+      const region='Zone '+(1+Math.floor(Math.random()*8));
+      const vehicle=['Sedan','SUV','Hatchback','Pickup','Motorcycle'][Math.floor(Math.random()*5)];
+      const sum=50000+Math.floor(Math.random()*450000);
+      const premium=Math.round(sum*0.02*(1+Math.random()*0.5));
+      const claim=Math.random()<0.22?'Yes':'No';
+      const peril=claim==='Yes'?['Collision','Theft','Fire','Vandalism'][Math.floor(Math.random()*4)]:'-';
+      return ['POL-'+(10000+i),age,region,vehicle,sum,premium,claim,peril];
+    }},
+  Property:{headers:['policy_id','building_age','region','construction_type','sum_insured','premium','claim_flag','peril_type'],
+    gen(i){
+      const age=1+Math.floor(Math.random()*60);
+      const region='Zone '+(1+Math.floor(Math.random()*8));
+      const construction=['Brick','Timber','Concrete','Steel Frame'][Math.floor(Math.random()*4)];
+      const sum=200000+Math.floor(Math.random()*1800000);
+      const premium=Math.round(sum*0.008*(1+Math.random()*0.6));
+      const claim=Math.random()<0.18?'Yes':'No';
+      const peril=claim==='Yes'?['Flood','Fire','Storm','Theft'][Math.floor(Math.random()*4)]:'-';
+      return ['PROP-'+(10000+i),age,region,construction,sum,premium,claim,peril];
+    }},
+  Cyber:{headers:['incident_id','company_size','industry','breach_type','records_exposed','cost_usd','response_days'],
+    gen(i){
+      const size=['Small (<50)','Medium (50-500)','Large (500+)'][Math.floor(Math.random()*3)];
+      const industry=['Healthcare','Retail','Finance','Technology','Education'][Math.floor(Math.random()*5)];
+      const breach=['Ransomware','Phishing','Data Leak','DDoS'][Math.floor(Math.random()*4)];
+      const records=Math.floor(Math.random()*500000);
+      const cost=Math.floor(20000+Math.random()*2000000);
+      const days=1+Math.floor(Math.random()*30);
+      return ['INC-'+(10000+i),size,industry,breach,records,cost,days];
+    }},
+  Climate:{headers:['policy_id','region','event_type','rainfall_mm','damage_usd','claim_flag'],
+    gen(i){
+      const region='District '+(1+Math.floor(Math.random()*10));
+      const event=['Flood','Drought','Cyclone','Wildfire'][Math.floor(Math.random()*4)];
+      const rainfall=Math.floor(Math.random()*400);
+      const claim=Math.random()<0.3?'Yes':'No';
+      const damage=claim==='Yes'?Math.floor(5000+Math.random()*800000):0;
+      return ['CLM-'+(10000+i),region,event,rainfall,damage,claim];
+    }},
+};
+function generateDatasetRows(d,count){
+  const gen=datasetGenerators[d.cat]||datasetGenerators.Motor;
+  const rows=[];
+  for(let i=0;i<count;i++) rows.push(gen.gen(i));
+  return rows;
+}
+function fileSlug(name){ return name.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,''); }
+function downloadBlob(content,filename,mime){
+  try{
+    const blob=new Blob([content],{type:mime});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download=filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    return true;
+  }catch(e){ toast('⚠️ Download failed in this environment'); return false; }
+}
+function downloadCSV(i){
+  const d=datasets[i], gen=datasetGenerators[d.cat]||datasetGenerators.Motor;
+  const rows=generateDatasetRows(d,500);
+  const csv=[gen.headers.join(','), ...rows.map(r=>r.join(','))].join('\n');
+  if(downloadBlob(csv, fileSlug(d.name)+'.csv','text/csv')) toast('⬇ CSV downloaded — 500 rows');
+}
+function downloadExcel(i){
+  const d=datasets[i], gen=datasetGenerators[d.cat]||datasetGenerators.Motor;
+  const rows=generateDatasetRows(d,500);
+  if(typeof XLSX==='undefined'){ toast('⚠️ Excel engine unavailable offline — downloading CSV instead'); downloadCSV(i); return; }
+  const ws=XLSX.utils.aoa_to_sheet([gen.headers, ...rows]);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Data');
+  XLSX.writeFile(wb, fileSlug(d.name)+'.xlsx');
+  toast('⬇ Excel workbook downloaded — 500 rows');
+}
+function downloadNotebook(i){
+  const d=datasets[i], gen=datasetGenerators[d.cat]||datasetGenerators.Motor;
+  const csvName=fileSlug(d.name)+'.csv';
+  const nb={
+    cells:[
+      {cell_type:'markdown', metadata:{}, source:[`# ${d.name}\n`, `Starter analysis notebook generated by ActuaryVerse AI.\n`, `Place \`${csvName}\` (downloaded from the Dataset Hub) in the same folder as this notebook.`]},
+      {cell_type:'code', execution_count:null, metadata:{}, outputs:[], source:[
+        'import pandas as pd\n', 'import numpy as np\n', 'import matplotlib.pyplot as plt\n\n',
+        `df = pd.read_csv('${csvName}')\n`, 'df.head()'
+      ]},
+      {cell_type:'code', execution_count:null, metadata:{}, outputs:[], source:[
+        '# Quick structure check\n', 'df.info()\n', 'df.describe(include="all")'
+      ]},
+      {cell_type:'code', execution_count:null, metadata:{}, outputs:[], source:[
+        '# Frequency of claims / incidents\n',
+        gen.headers.includes('claim_flag') ? "df['claim_flag'].value_counts(normalize=True)" : "df.iloc[:, -1].value_counts(normalize=True)"
+      ]},
+      {cell_type:'code', execution_count:null, metadata:{}, outputs:[], source:[
+        '# Example: distribution plot on a numeric column\n',
+        `df.select_dtypes(include=[np.number]).hist(figsize=(10,6))\n`, 'plt.tight_layout()\n', 'plt.show()'
+      ]},
+    ],
+    metadata:{ kernelspec:{display_name:'Python 3', language:'python', name:'python3'}, language_info:{name:'python', version:'3.11'} },
+    nbformat:4, nbformat_minor:5
+  };
+  if(downloadBlob(JSON.stringify(nb,null,2), fileSlug(d.name)+'.ipynb','application/json')) toast('⬇ Python notebook downloaded');
+}
+function downloadSQL(i){
+  const d=datasets[i], gen=datasetGenerators[d.cat]||datasetGenerators.Motor;
+  const rows=generateDatasetRows(d,200);
+  const numericHints=['age','sum','premium','cost','records','days','rainfall','damage'];
+  const tableName=fileSlug(d.name);
+  const colDefs=gen.headers.map(h=>{
+    const isNum = numericHints.some(hint=>h.includes(hint));
+    return `  ${h} ${isNum?'NUMERIC':'TEXT'}`;
+  }).join(',\n');
+  let sql=`-- Auto-generated by ActuaryVerse AI Dataset Hub\nCREATE TABLE ${tableName} (\n${colDefs}\n);\n\n`;
+  rows.forEach(r=>{
+    const vals=r.map((v,vi)=>{
+      const isNum = numericHints.some(hint=>gen.headers[vi].includes(hint));
+      return isNum ? v : `'${String(v).replace(/'/g,"''")}'`;
+    }).join(', ');
+    sql+=`INSERT INTO ${tableName} (${gen.headers.join(', ')}) VALUES (${vals});\n`;
+  });
+  if(downloadBlob(sql, tableName+'.sql','text/plain')) toast('⬇ SQL script downloaded — 200 rows');
+}
+function downloadPowerBI(i){
+  const d=datasets[i];
+  const csvName=fileSlug(d.name)+'.csv';
+  const mQuery=`// Power Query M — paste into Power BI: Get Data > Blank Query > Advanced Editor\n// First download the CSV for "${d.name}" from the Dataset Hub and update the path below.\nlet\n    Source = Csv.Document(File.Contents("C:\\Data\\${csvName}"),[Delimiter=",", Columns=8, Encoding=65001, QuoteStyle=QuoteStyle.None]),\n    PromotedHeaders = Table.PromoteHeaders(Source, [PromoteAllScalars=true]),\n    ChangedType = Table.TransformColumnTypes(PromotedHeaders, {})\nin\n    ChangedType\n`;
+  if(downloadBlob(mQuery, fileSlug(d.name)+'_powerbi_query.txt','text/plain')) toast('⬇ Power BI query file downloaded');
+}
+
+
+/* ============================= 30. EDA PLAYGROUND ============================= */
+function renderEdaPlayground(){
+  return `${pageHeader('EDA Playground','Interactive analytics workspace',`<button class="btn btn-ghost btn-sm" onclick="exportEdaPDF()">📄 Export PDF</button>`)}
+  <div class="grid g4" style="margin-bottom:18px;">
+    <div class="card" style="cursor:default;"><div class="muted" style="font-size:11px;">ROWS</div><div style="font-weight:800; font-size:19px;">482,110</div></div>
+    <div class="card" style="cursor:default;"><div class="muted" style="font-size:11px;">MISSING VALUES</div><div style="font-weight:800; font-size:19px;">1.4%</div></div>
+    <div class="card" style="cursor:default;"><div class="muted" style="font-size:11px;">OUTLIERS FLAGGED</div><div style="font-weight:800; font-size:19px;">328</div></div>
+    <div class="card" style="cursor:default;"><div class="muted" style="font-size:11px;">MEAN CLAIM</div><div style="font-weight:800; font-size:19px;">₹41,230</div></div>
+  </div>
+  <div class="grid g2" style="margin-bottom:18px;">
+    <div class="glass" style="padding:20px;"><h3 style="font-size:14px; margin-bottom:12px;">Correlation Heatmap</h3><div style="display:grid; grid-template-columns:repeat(6,1fr); gap:3px;">${Array.from({length:36}).map(()=>`<div style="aspect-ratio:1; border-radius:4px; background:rgba(30,64,175,${(Math.random()*0.8+0.1).toFixed(2)});"></div>`).join('')}</div></div>
+    <div class="glass" style="padding:20px;"><h3 style="font-size:14px; margin-bottom:12px;">Claim Amount Histogram</h3><div style="display:flex; align-items:flex-end; gap:4px; height:130px;">${[20,45,70,90,60,35,25,15,10,8].map(h=>`<div style="flex:1; height:${h}%; background:linear-gradient(180deg,var(--cyan),var(--primary)); border-radius:4px 4px 0 0;"></div>`).join('')}</div></div>
+  </div>
+  <div class="grid g2">
+    <div class="glass" style="padding:20px;"><h3 style="font-size:14px; margin-bottom:12px;">Sum Insured vs Claim (Scatter)</h3><svg width="100%" height="140" viewBox="0 0 300 140">${Array.from({length:40}).map(()=>`<circle cx="${Math.random()*280+10}" cy="${140-Math.random()*130}" r="3" fill="#1E40AF" opacity="0.55"/>`).join('')}</svg></div>
+    <div class="glass" style="padding:20px;"><h3 style="font-size:14px; margin-bottom:8px;">✨ AI-Generated EDA Report</h3><p class="muted" style="font-size:12.5px; line-height:1.7;">Claim severity is right-skewed with a long tail past ₹150K. Region and peril_type show the strongest correlation with claim frequency — consider these as primary rating factors.</p></div>
+  </div>`;
+}
+function exportPDF(title, sections){
+  const w = window.open('', '_blank', 'width=850,height=1000');
+  if(!w){ toast('⚠️ Pop-up blocked — allow pop-ups to export PDF'); return; }
+  const body = sections.map(s=>`<h2 style="font-size:16px; margin:22px 0 8px; color:#1E40AF;">${s.heading}</h2><div style="font-size:13px; line-height:1.7; color:#1F2937;">${s.body}</div>`).join('');
+  w.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
+    <style>
+      body{font-family:Arial,Helvetica,sans-serif; padding:40px; color:#111;}
+      h1{font-size:22px; color:#1E40AF; margin-bottom:2px;}
+      .sub{color:#666; font-size:12px; margin-bottom:20px;}
+      table{border-collapse:collapse; width:100%; margin-top:8px;}
+      td,th{border:1px solid #ddd; padding:6px 8px; font-size:12px; text-align:left;}
+      @media print{ .noprint{display:none;} }
+    </style></head><body>
+    <h1>${title}</h1>
+    <div class="sub">Generated by ActuaryVerse AI · ${userState.name} · ${new Date().toLocaleDateString()}</div>
+    ${body}
+    <p class="noprint" style="margin-top:30px; color:#888; font-size:12px;">Use your browser's Print dialog (Ctrl/Cmd+P) and choose "Save as PDF".</p>
+  </body></html>`);
+  w.document.close();
+  setTimeout(()=>{ w.focus(); w.print(); }, 300);
+}
+function exportEdaPDF(){
+  exportPDF('EDA Playground Report', [
+    {heading:'Dataset Overview', body:'Rows analyzed: 482,110 &nbsp;·&nbsp; Missing values: 1.4% &nbsp;·&nbsp; Outliers flagged: 328 &nbsp;·&nbsp; Mean claim: ₹41,230'},
+    {heading:'Key Finding', body:'Claim severity is right-skewed with a long tail past ₹150K. Region and peril_type show the strongest correlation with claim frequency.'},
+    {heading:'Recommendation', body:'Use region and peril_type as primary rating factors in the next pricing iteration. Investigate the 328 flagged outliers before model training.'},
+  ]);
+  toast('🖨️ Opening print dialog — choose "Save as PDF"');
+}
+
+/* ============================= 31-32. PROJECT LAB ============================= */
+const projects=[
+  {name:'Build a Motor Pricing Model', level:'Beginner', color:'var(--emerald)', dur:'2 weeks', datasetIdx:0},
+  {name:'Reserve a Property Claims Triangle', level:'Intermediate', color:'var(--gold)', dur:'3 weeks', datasetIdx:4},
+  {name:'Price Flood Risk with Climate Data', level:'Advanced', color:'var(--secondary)', dur:'4 weeks', datasetIdx:1},
+  {name:'Detect Fraud with ML Classifiers', level:'Advanced', color:'var(--secondary)', dur:'4 weeks', datasetIdx:5},
+  {name:'Cyber Breach Loss Distribution', level:'Intermediate', color:'var(--gold)', dur:'3 weeks', datasetIdx:2},
+  {name:'Build a Combined Ratio Dashboard', level:'Beginner', color:'var(--emerald)', dur:'1 week', datasetIdx:0},
+];
+function renderProjectLab(){
+  return `${pageHeader('Project Lab','Build a real actuarial portfolio')}
+  <div class="grid g3">
+  ${projects.map((p,i)=>`
+    <div class="card" onclick="openProject(${i})">
+      <span class="pill" style="background:${p.color}22; color:${p.color};">${p.level}</span>
+      <div style="font-weight:700; font-size:14.5px; margin:12px 0 6px;">${p.name}</div>
+      <div class="muted" style="font-size:11.5px;">⏱ ${p.dur} · Dataset included</div>
+      <button class="btn btn-ghost btn-sm btn-block" style="margin-top:14px;" onclick="event.stopPropagation(); openProject(${i})">Start Project →</button>
+    </div>`).join('')}
+  </div>`;
+}
+function openProject(i){
+  currentTab='_detail';
+  const p=projects[i];
+  showScreen('mainapp');
+  document.getElementById('mainArea').innerHTML=`
+  <div class="back-btn" onclick="navTo('projectlab')" style="margin-bottom:14px;">← Project Lab</div>
+  <div class="glass" style="padding:24px; margin-bottom:18px;">
+    <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+      <div><h2 style="font-size:20px;">${p.name}</h2><p class="muted" style="font-size:13px; margin-top:6px;">${p.level} · ${p.dur} · Rubric-graded with AI mentor feedback</p></div>
+      <button class="btn btn-ghost btn-sm" onclick="exportProjectPDF(${i})">📄 Export Brief PDF</button>
+    </div>
+    <div class="progress-track" style="margin-top:14px;"><div class="progress-fill" style="width:35%"></div></div><div class="muted" style="font-size:11.5px; margin-top:6px;">35% complete · Submission due in 12 days</div></div>
+  <div class="grid g4">
+    <div class="card" onclick="downloadNotebook(${p.datasetIdx})"><div style="font-size:20px;">📓</div><div style="font-weight:700; font-size:12.5px; margin-top:6px;">Download Notebook</div></div>
+    <div class="card" onclick="downloadPowerBI(${p.datasetIdx})"><div style="font-size:20px;">📊</div><div style="font-weight:700; font-size:12.5px; margin-top:6px;">Power BI Query</div></div>
+    <div class="card" onclick="downloadExcel(${p.datasetIdx})"><div style="font-size:20px;">📗</div><div style="font-weight:700; font-size:12.5px; margin-top:6px;">Download Excel</div></div>
+    <div class="card" onclick="downloadSQL(${p.datasetIdx})"><div style="font-size:20px;">🗄️</div><div style="font-weight:700; font-size:12.5px; margin-top:6px;">Download SQL</div></div>
+  </div>
+  <div class="muted" style="font-size:11.5px; margin-top:8px;">Dataset: ${datasets[p.datasetIdx].name}</div>
+  <div class="grid" style="grid-template-columns:2fr 1fr; margin-top:18px;">
+    <div class="glass" style="padding:20px;"><h3 style="font-size:14px; margin-bottom:10px;">Rubric</h3>
+      <div style="display:flex; flex-direction:column; gap:10px; font-size:13px;">
+        <div style="display:flex; justify-content:space-between;"><span>Data cleaning & EDA</span><span class="muted">25 pts</span></div>
+        <div style="display:flex; justify-content:space-between;"><span>Model selection & justification</span><span class="muted">30 pts</span></div>
+        <div style="display:flex; justify-content:space-between;"><span>Communication of results</span><span class="muted">25 pts</span></div>
+        <div style="display:flex; justify-content:space-between;"><span>Actuarial soundness</span><span class="muted">20 pts</span></div>
+      </div>
+    </div>
+    <div class="glass" style="padding:20px;"><h3 style="font-size:14px; margin-bottom:8px;">🤖 AI Mentor</h3><p class="muted" style="font-size:12.5px; margin-bottom:10px;">"Your loss-development factors look reasonable — double check the tail factor assumption for older accident years."</p><button class="btn btn-ghost btn-sm btn-block" onclick="navTo('aitutor')">Continue conversation</button></div>
+  </div>`;
+}
+function exportProjectPDF(i){
+  const p=projects[i];
+  exportPDF(p.name, [
+    {heading:'Project Brief', body:`Level: ${p.level} &nbsp;·&nbsp; Duration: ${p.dur} &nbsp;·&nbsp; Dataset: ${datasets[p.datasetIdx].name}`},
+    {heading:'Rubric', body:'Data cleaning & EDA — 25 pts<br>Model selection & justification — 30 pts<br>Communication of results — 25 pts<br>Actuarial soundness — 20 pts'},
+    {heading:'AI Mentor Note', body:'Your loss-development factors look reasonable — double check the tail factor assumption for older accident years.'},
+  ]);
+  toast('🖨️ Opening print dialog — choose "Save as PDF"');
+}
+
+/* ============================= 33. AI TUTOR (AURA) ============================= */
+let auraMessages=[
+  {role:'ai', text:"Hi Ada! I'm AURA, your AI actuarial tutor 👋 What would you like to work through today?"}
+];
+function renderAiTutor(){
+  return `${pageHeader('AURA — Your AI Tutor','Ask anything about General Insurance, datasets, or code')}
+  <div class="grid" style="grid-template-columns:1fr 260px; height:calc(100vh - 180px);">
+    <div class="glass" style="display:flex; flex-direction:column; padding:0; overflow:hidden;">
+      <div id="auraChat" style="flex:1; overflow-y:auto; padding:22px; display:flex; flex-direction:column; gap:14px;"></div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; padding:0 22px 12px;">
+        ${['Explain Formula','Explain Dataset','Review Code','Generate Quiz','Summarize Chapter','Explain Like Beginner'].map(a=>`<span class="chip" onclick="auraQuick('${a}')">${a}</span>`).join('')}
+      </div>
+      <div style="display:flex; gap:10px; padding:16px 22px; border-top:1px solid rgba(30,64,175,.08);">
+        <input id="auraInput" placeholder="Ask AURA anything…" style="flex:1;" onkeydown="if(event.key==='Enter')auraSend()">
+        <button class="btn btn-primary" onclick="auraSend()">Send</button>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:14px;">
+      <div class="glass" style="padding:18px; text-align:center;"><div style="font-size:40px;">🤖</div><div style="font-weight:700; margin-top:8px;">AURA</div><div class="muted" style="font-size:11.5px;">Actuarial Universal Reasoning Assistant</div></div>
+      <div class="glass" style="padding:16px;"><div style="font-weight:700; font-size:12.5px; margin-bottom:8px;">Recent Topics</div>
+        <div class="muted" style="font-size:12px; line-height:2;">Combined Ratio<br>IBNR reserving<br>Flood pricing model<br>SQL joins for claims</div>
+      </div>
+    </div>
+  </div>`;
+}
+function drawAura(){
+  const chatEl=document.getElementById('auraChat');
+  if(!chatEl) return;
+  chatEl.innerHTML = auraMessages.map(m=>`
+    <div style="display:flex; ${m.role==='user'?'justify-content:flex-end;':''}">
+      <div style="max-width:75%; padding:12px 16px; border-radius:16px; font-size:13.5px; line-height:1.6;
+        ${m.role==='user' ? 'background:linear-gradient(135deg,var(--primary),var(--primary-light)); color:#fff; border-bottom-right-radius:4px;' : 'background:rgba(30,64,175,.07); border-bottom-left-radius:4px;'}">
+        ${m.text}
+      </div>
+    </div>`).join('');
+  chatEl.scrollTop=chatEl.scrollHeight;
+}
+function auraQuick(action){
+  auraMessages.push({role:'user', text:action});
+  auraMessages.push({role:'ai', text:auraReply(action)});
+  drawAura();
+}
+function auraSend(){
+  const inp=document.getElementById('auraInput');
+  if(!inp.value.trim()) return;
+  auraMessages.push({role:'user', text:inp.value});
+  const q=inp.value; inp.value='';
+  drawAura();
+  setTimeout(()=>{ auraMessages.push({role:'ai', text:auraReply(q)}); drawAura(); },500);
+}
+function auraReply(q){
+  const replies={
+    'Explain Formula':"Sure — which formula? For example, Loss Ratio = Incurred Losses ÷ Earned Premium. Give me the exact formula and I'll break it down step by step.",
+    'Explain Dataset':"Point me to a dataset from the Dataset Hub and I'll summarize its structure, key variables, and suggested first analyses.",
+    'Review Code':"Paste your Python/SQL snippet and I'll check logic, suggest vectorized alternatives, and flag any actuarial modelling pitfalls.",
+    'Generate Quiz':"Here's a 5-question quiz on Claims Reserving forming now — check the Flashcard Academy tab for the generated set!",
+    'Summarize Chapter':"This chapter covers reserving triangles, chain-ladder projections, and IBNR estimation — want the 3-bullet or full summary?",
+    'Explain Like Beginner':"Think of an insurance reserve like a piggy bank the company keeps aside for claims it knows are coming but hasn't paid yet."
+  };
+  return replies[q] || "Great question — let's work through it together. Could you share a bit more detail so I can tailor the explanation to your mission progress?";
+}
+drawAura();
+
+/* ============================= 34. SIMULATION LAB ============================= */
+function renderSimLab(){
+  return `${pageHeader('Simulation Lab','Live insurance risk simulation')}
+  <div class="grid" style="grid-template-columns:1fr 1.2fr;">
+    <div class="glass" style="padding:22px;">
+      <h3 style="font-size:14px; margin-bottom:16px;">Risk Parameters</h3>
+      ${simSlider('Rainfall (mm)','rainfall',40,0,200)}
+      ${simSlider('Flood Depth (cm)','flood',20,0,150)}
+      ${simSlider('Temperature (°C)','temp',28,10,50)}
+      ${simSlider('Cyber Attacks / month','cyber',5,0,50)}
+      ${simSlider('Inflation Rate (%)','inflation',6,0,20)}
+      ${simSlider('Policy Count (000s)','policies',100,10,500)}
+    </div>
+    <div class="glass" style="padding:22px;">
+      <h3 style="font-size:14px; margin-bottom:16px;">Live Outputs</h3>
+      <div class="grid g2" id="simOutputs">${simOutputHtml()}</div>
+      <div style="margin-top:18px;"><div class="muted" style="font-size:12px; margin-bottom:8px;">Risk Score Trend</div>
+        <div style="display:flex; align-items:flex-end; gap:5px; height:80px;" id="simChart">${simChartHtml()}</div>
+      </div>
+    </div>
+  </div>`;
+}
+function simSlider(label,id,val,min,max){
+  return `<div style="margin-bottom:18px;"><div style="display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:6px;"><label style="margin:0;">${label}</label><span id="${id}Val" style="font-weight:700; color:var(--primary);">${val}</span></div>
+  <input type="range" min="${min}" max="${max}" value="${val}" id="${id}Range" oninput="updateSim()" style="width:100%; accent-color:var(--primary);"></div>`;
+}
+function simOutputHtml(){
+  const vals=simCompute();
+  return `
+  <div class="card" style="cursor:default;"><div class="muted" style="font-size:10.5px;">EXPECTED CLAIMS</div><div style="font-weight:800; font-size:17px;">₹${vals.claims}M</div></div>
+  <div class="card" style="cursor:default;"><div class="muted" style="font-size:10.5px;">PREMIUM</div><div style="font-weight:800; font-size:17px;">₹${vals.premium}M</div></div>
+  <div class="card" style="cursor:default;"><div class="muted" style="font-size:10.5px;">LOSS RATIO</div><div style="font-weight:800; font-size:17px;">${vals.lossRatio}%</div></div>
+  <div class="card" style="cursor:default;"><div class="muted" style="font-size:10.5px;">COMBINED RATIO</div><div style="font-weight:800; font-size:17px;">${vals.combined}%</div></div>
+  <div class="card" style="cursor:default;"><div class="muted" style="font-size:10.5px;">RESERVE</div><div style="font-weight:800; font-size:17px;">₹${vals.reserve}M</div></div>
+  <div class="card" style="cursor:default;"><div class="muted" style="font-size:10.5px;">RISK SCORE</div><div style="font-weight:800; font-size:17px; color:${vals.risk>65?'var(--secondary)':'var(--emerald)'};">${vals.risk}/100</div></div>`;
+}
+function simChartHtml(){
+  return Array.from({length:12}).map(()=>{const h=Math.random()*70+10; return `<div style="flex:1; height:${h}%; background:linear-gradient(180deg,var(--cyan),var(--primary)); border-radius:4px 4px 0 0;"></div>`}).join('');
+}
+function simCompute(){
+  const defaults={rainfall:40,flood:20,temp:28,cyber:5,inflation:6,policies:100};
+  const g=id=>{const el=document.getElementById(id+'Range'); return el?Number(el.value):defaults[id];};
+  const rainfall=g('rainfall'), flood=g('flood'), temp=g('temp'), cyber=g('cyber'), inflation=g('inflation'), policies=g('policies');
+  const claims = ((rainfall*0.8 + flood*1.4 + cyber*3 + temp*0.5) * (policies/100) * (1+inflation/100)/10).toFixed(1);
+  const premium = (claims*1.35).toFixed(1);
+  const lossRatio = Math.min(99,Math.round((claims/premium)*100));
+  const combined = Math.min(140,lossRatio+28);
+  const reserve = (claims*0.42).toFixed(1);
+  const risk = Math.min(100, Math.round((rainfall+flood+cyber*2+temp)/6));
+  return {claims,premium,lossRatio,combined,reserve,risk};
+}
+function updateSim(){
+  ['rainfall','flood','temp','cyber','inflation','policies'].forEach(id=>{
+    const el=document.getElementById(id+'Val'); if(el) el.textContent=document.getElementById(id+'Range').value;
+  });
+  document.getElementById('simOutputs').innerHTML=simOutputHtml();
+  document.getElementById('simChart').innerHTML=simChartHtml();
+}
+
+/* ============================= 35. CASE STUDY LIBRARY ============================= */
+const cases=[
+  {name:'Motor Flood — Chennai 2023', tag:'Motor · Climate', icon:'🚗',
+   background:'Record monsoon rainfall flooded major Chennai motor corridors, triggering a spike in total-loss and water-damage claims within 72 hours. Insurers with concentrated motor books in the city faced an unusually sharp, geographically clustered surge in claims volume.',
+   industryContext:'Urban flood events are becoming more frequent and severe as cities densify and drainage infrastructure lags behind development. Motor insurers increasingly need flood-aware pricing and rapid claims-response playbooks rather than treating floods as rare tail events.',
+   timeline:['Dec 1: Rainfall alerts issued','Dec 3: Flash flooding across 4 districts','Dec 4-6: 12,000+ motor claims filed','Dec 14: Insurer deploys mobile assessment units','Jan 10: Final loss estimate finalized'],
+   dataset:'Motor Claims — Tamil Nadu 2019-2024', datasetIdx:0,
+   objectives:['Understand how catastrophe events cluster motor claims geographically and temporally','Practice estimating claim frequency and severity shifts during a cat event','Learn how insurers mobilize rapid claims response at scale'],
+   questions:['How would you adjust reserving assumptions the moment flood alerts are issued, before claims start arriving?','What rating factors could have flagged this exposure concentration in advance?','How should the insurer prioritize which of the 12,000+ claims to assess first?'],
+   reflectionPrompt:'Write 3-4 sentences: if you were the reserving actuary on Dec 4, what immediate action would you take, and why?',
+   aiGuidance:'Ask AURA to walk you through how cat-triggered claim spikes affect IBNR estimates differently than routine claim volume growth.',
+   solution:'A sound response combines an immediate qualitative reserve loading (since data lags the event by days), triage rules prioritizing total-loss and safety-related claims first, and a post-event review of geographic concentration limits to inform future flood-zone rating factors.',
+   discussion:14},
+  {name:'Hospital Ransomware Attack', tag:'Cyber', icon:'🏥',
+   background:"A mid-size hospital network's patient record systems were encrypted by ransomware, halting operations for 6 days and triggering a cyber liability claim covering business interruption, ransom negotiation, and regulatory exposure.",
+   industryContext:'Healthcare is one of the most-targeted sectors for ransomware due to legacy IT systems and the urgency of restoring patient care. Cyber insurers must price both first-party costs (downtime, ransom, forensics) and third-party liability (patient data exposure).',
+   timeline:['Day 0: Ransomware deployed via phishing email','Day 1: Systems taken offline','Day 2: Ransom demand received ($2.1M)','Day 6: Systems restored from backups','Day 30: Business interruption claim filed'],
+   dataset:'Cyber Breach Incidents Global', datasetIdx:2,
+   objectives:['Break down the cost components of a cyber incident: ransom, downtime, forensics, liability','Understand why response time directly drives loss severity in cyber claims','Evaluate the role of security controls (MFA, backups) in claim outcomes'],
+   questions:['Why did having backups reduce the ultimate loss compared to paying the ransom?','How would you separate first-party costs from third-party liability in this claim?','What underwriting question, if asked beforehand, might have changed this policy\'s pricing?'],
+   reflectionPrompt:'Write 3-4 sentences: what single security control would have had the biggest impact on reducing this loss, and why?',
+   aiGuidance:'Ask AURA to explain how cyber loss severity distributions differ from traditional property losses — they tend to be far more heavy-tailed.',
+   solution:'The presence of clean backups was the key loss-mitigating factor, avoiding ransom payment. A well-structured response separates business interruption (measurable via downtime × daily revenue), incident response costs, and any third-party liability from a data exposure investigation — each priced and reserved differently.',
+   discussion:22},
+  {name:'Wildfire — California 2024', tag:'Property · Climate', icon:'🔥',
+   background:"Fast-moving wildfires driven by drought conditions destroyed over 3,000 structures, testing insurers' catastrophe reserves and reinsurance treaties across multiple counties simultaneously.",
+   industryContext:'Wildfire risk in the western US has shifted from a tail risk to a recurring annual exposure, forcing insurers to rethink both primary pricing in wildland-urban interface zones and how much protection their reinsurance towers actually provide at these loss levels.',
+   timeline:['Aug 2: Fire ignition reported','Aug 3-5: Rapid spread across dry brushland','Aug 6: State of emergency declared','Aug 20: Loss adjusters deployed','Oct 1: Reinsurance recoveries processed'],
+   dataset:'Wildfire Property Losses — California', datasetIdx:4,
+   objectives:['Understand how catastrophe modelling estimates PML (probable maximum loss) for wildfire','Learn how reinsurance treaties respond to large, correlated property losses','Practice interpreting combined ratio impact from a single cat event'],
+   questions:['How does a single event like this affect the insurer\'s combined ratio for the year?','At what loss threshold does the reinsurance treaty start responding, and why does that threshold matter to the primary insurer\'s capital position?','What underwriting changes would you recommend for future policies in this wildfire zone?'],
+   reflectionPrompt:'Write 3-4 sentences: how would you explain to a non-technical stakeholder why this one event could move the company\'s full-year loss ratio?',
+   aiGuidance:'Ask AURA to explain how catastrophe models simulate thousands of synthetic wildfire years to estimate PML at different return periods.',
+   solution:'The event exceeded the primary retention, triggering reinsurance recoveries that protected capital — this is exactly what cat treaties are designed for. Going forward, tighter wildland-urban interface underwriting guidelines and defensible-space requirements are the standard mitigation response.',
+   discussion:31},
+  {name:'Crop Insurance Drought Payout', tag:'Agriculture', icon:'🌾',
+   background:'A prolonged dry season across major grain-producing regions triggered index-based drought payouts for thousands of smallholder farmers, testing the speed and fairness of parametric claims processing at scale.',
+   industryContext:'Index-based (parametric) crop insurance is growing rapidly in emerging markets because it avoids costly individual farm assessments — but it depends entirely on the rainfall index being a reliable proxy for actual crop loss, which this case tests.',
+   timeline:['Apr: Rainfall index drops below trigger','Jun: Mid-season assessment confirms deficit','Sep: Harvest yields confirmed low','Oct: Automatic index payouts issued'],
+   dataset:'Crop Insurance Drought Claims', datasetIdx:3,
+   objectives:['Understand how parametric (index-based) insurance differs from indemnity-based insurance','Evaluate the trade-off between payout speed and basis risk','Practice interpreting a rainfall trigger and payout curve'],
+   questions:['What is "basis risk" in this context, and which farmers might be under- or over-compensated?','Why can payouts be automatic here, unlike a typical property claim?','How would you validate that the rainfall index is actually well-correlated with crop yield?'],
+   reflectionPrompt:'Write 3-4 sentences: would you recommend index-based or indemnity-based cover for this region, and why?',
+   aiGuidance:'Ask AURA to explain basis risk with a concrete numeric example comparing a farmer\'s actual loss to their index-based payout.',
+   solution:'Index insurance traded some individual accuracy (basis risk) for speed and low administrative cost — appropriate here given the number of smallholders involved. A blended approach (index cover with a supplemental indemnity layer for large discrepancies) is a common way to reduce basis risk without losing the speed benefit.',
+   discussion:9},
+  {name:'AI-Assisted Claims Fraud Ring', tag:'Fraud', icon:'🕵️',
+   background:'A coordinated ring used AI-generated documents and staged accidents to file over 400 fraudulent motor and health claims across three states before pattern-detection analytics flagged the cluster.',
+   industryContext:'Generative AI has lowered the cost of producing convincing fake documentation (medical reports, repair invoices), pushing fraud detection away from manual document review and toward network and pattern analysis across claims.',
+   timeline:['Jan: Anomaly detection flags claim clustering','Feb: SIU opens formal investigation','Mar: Pattern links 400+ claims to shared addresses','Apr: Arrests made, claims denied & recovered'],
+   dataset:'Health Insurance Fraud Claims', datasetIdx:5,
+   objectives:['Learn how fraud detection models flag anomalous claim clusters rather than individual claims','Understand the role of the Special Investigation Unit (SIU) once a pattern is flagged','Practice identifying red-flag patterns in claims data'],
+   questions:['What features (shared address, shared repair shop, timing) made this ring detectable as a pattern rather than as individual claims?','How should the insurer balance fast claims payment against the risk of paying fraudulent claims?','What would false positives cost the business if the detection model were too aggressive?'],
+   reflectionPrompt:'Write 3-4 sentences: propose one additional data feature that could have flagged this ring earlier.',
+   aiGuidance:'Ask AURA how network-based fraud detection differs from simple rule-based flagging, and why it caught this ring where single-claim rules might not have.',
+   solution:'The ring was caught through network analysis linking claims by shared addresses and repair shops — a pattern invisible when claims are reviewed individually. This supports investing in graph-based or network-analytics fraud tools rather than relying solely on per-claim rule engines.',
+   discussion:18},
+  {name:'Cyclone Landfall — Odisha', tag:'Property · Climate', icon:'🌀',
+   background:'A severe cyclonic storm made landfall on the eastern coast, causing widespread property and agricultural damage across coastal districts, with wind and storm-surge losses arriving almost simultaneously.',
+   industryContext:'Coastal cyclone exposure requires insurers to model compound perils — wind damage and storm surge/flood often occur together, and policies must clearly define which peril responds to avoid disputes during claims settlement.',
+   timeline:['Day -3: Cyclone warning issued','Day 0: Landfall, sustained 165 km/h winds','Day 1-3: Damage surveys begin','Day 15: Cat model loss estimate finalized'],
+   dataset:'Property Flood Losses — Chennai', datasetIdx:1,
+   objectives:['Understand compound peril modelling (wind + storm surge together)','Learn how early-warning lead time affects claims preparedness','Practice reconciling a cat model estimate against emerging ground-truth survey data'],
+   questions:['Why might a claim from this event be disputed if the policy separates "wind" and "flood" coverage?','How does a 3-day warning lead time change the insurer\'s pre-event operations compared to a sudden event?','How would you reconcile the Day 15 cat model estimate if early ground surveys suggest it\'s off by 20%?'],
+   reflectionPrompt:'Write 3-4 sentences: how would you communicate a peril-coverage dispute (wind vs. flood) fairly to an affected policyholder?',
+   aiGuidance:'Ask AURA to explain how insurers typically define and adjudicate "anti-concurrent causation" clauses when wind and flood arrive together.',
+   solution:'Clear peril-attribution language in the policy, agreed before the event, is the best preventer of disputes. Where causes are genuinely mixed, many insurers apportion loss between perils using engineering assessment rather than an all-or-nothing determination.',
+   discussion:11},
+];
+function renderCaseStudy(){
+  return `${pageHeader('Case Study Library','25 real-world scenarios with datasets & simulations')}
+  <div class="grid g3">
+  ${cases.map((c,i)=>`<div class="card" onclick="openCaseStudy(${i})">
+    <div class="icon-badge" style="background:rgba(30,64,175,.1); font-size:22px;">${c.icon}</div>
+    <div style="font-weight:700; font-size:14px; margin-top:10px;">${c.name}</div>
+    <div class="muted" style="font-size:11.5px; margin:4px 0 10px;">${c.tag}</div>
+    <div style="display:flex; gap:6px; flex-wrap:wrap;"><span class="pill" style="background:rgba(30,64,175,.08);">📅 Timeline</span><span class="pill" style="background:rgba(30,64,175,.08);">📦 Dataset</span><span class="pill" style="background:rgba(30,64,175,.08);">🌊 Simulation</span></div>
+  </div>`).join('')}
+  </div>`;
+}
+let caseComments=[];
+let solutionRevealed=false;
+function openCaseStudy(i){
+  currentTab='_detail';
+  const c=cases[i];
+  solutionRevealed=false;
+  caseComments=[
+    {name:'Priya Raman', text:'The timeline breakdown really helped me understand the claims surge pattern.'},
+    {name:'Carlos Mendez', text:'Ran the dataset through the EDA Playground — clear spike right after day 2.'}
+  ];
+  showScreen('mainapp');
+  document.getElementById('mainArea').innerHTML=`
+  <div class="back-btn" onclick="navTo('casestudy')" style="margin-bottom:14px;">← Case Study Library</div>
+  <div class="glass" style="padding:0; overflow:hidden; margin-bottom:20px;">
+    <div style="padding:28px; background:linear-gradient(120deg, rgba(30,64,175,.12), rgba(249,115,22,.10));">
+      <div class="pill" style="background:rgba(255,255,255,.6); margin-bottom:10px;">${c.icon} ${c.tag}</div>
+      <h2 style="font-size:22px;">${c.name}</h2>
+    </div>
+  </div>
+  <div class="grid" style="grid-template-columns:2fr 1fr;">
+    <div>
+      <div class="glass" style="padding:22px; margin-bottom:18px;">
+        <h3 style="font-size:14.5px; margin-bottom:10px;">📖 Background</h3>
+        <p style="font-size:13px; line-height:1.7; color:var(--ink-soft);">${c.background}</p>
+        <h3 style="font-size:14.5px; margin:18px 0 10px;">🏢 Industry Context</h3>
+        <p style="font-size:13px; line-height:1.7; color:var(--ink-soft);">${c.industryContext}</p>
+      </div>
+      <div class="glass" style="padding:22px; margin-bottom:18px;">
+        <h3 style="font-size:14.5px; margin-bottom:14px;">📅 Timeline</h3>
+        <div style="display:flex; flex-direction:column; gap:0;">
+          ${c.timeline.map((t,ti)=>`<div style="display:flex; gap:12px;">
+            <div style="display:flex; flex-direction:column; align-items:center;">
+              <div style="width:10px;height:10px;border-radius:50%;background:var(--primary); flex-shrink:0; margin-top:4px;"></div>
+              ${ti<c.timeline.length-1?'<div style="width:2px; flex:1; background:rgba(30,64,175,.15); min-height:24px;"></div>':''}
+            </div>
+            <div style="padding-bottom:18px; font-size:13px; line-height:1.5;">${t}</div>
+          </div>`).join('')}
+        </div>
+      </div>
+      <div class="glass" style="padding:22px; margin-bottom:18px;">
+        <h3 style="font-size:14.5px; margin-bottom:12px;">🎯 Learning Objectives</h3>
+        <ul style="padding-left:18px; font-size:13px; line-height:1.9; color:var(--ink-soft);">
+          ${c.objectives.map(o=>`<li>${o}</li>`).join('')}
+        </ul>
+      </div>
+      <div class="glass" style="padding:22px; margin-bottom:18px;">
+        <h3 style="font-size:14.5px; margin-bottom:12px;">❓ Discussion Questions</h3>
+        <ol style="padding-left:18px; font-size:13px; line-height:1.9; color:var(--ink-soft);">
+          ${c.questions.map(q=>`<li>${q}</li>`).join('')}
+        </ol>
+      </div>
+      <div class="glass" style="padding:22px; margin-bottom:18px;">
+        <h3 style="font-size:14.5px; margin-bottom:10px;">📓 Reflection Activity</h3>
+        <p class="muted" style="font-size:12.5px; margin-bottom:10px;">${c.reflectionPrompt}</p>
+        <textarea id="caseReflection" rows="3" style="width:100%;" placeholder="Write your reflection here…"></textarea>
+        <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="saveCaseReflection(${i})">Save Reflection</button>
+      </div>
+      <div class="glass" style="padding:22px; margin-bottom:18px;">
+        <h3 style="font-size:14.5px; margin-bottom:10px;">🤖 AI Tutor Guidance</h3>
+        <p style="font-size:13px; line-height:1.7; color:var(--ink-soft);">${c.aiGuidance}</p>
+        <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="navTo('aitutor')">Continue with AURA →</button>
+      </div>
+      <div class="glass" style="padding:22px; margin-bottom:18px;">
+        <h3 style="font-size:14.5px; margin-bottom:10px;">✅ Suggested Solution</h3>
+        <p class="muted" style="font-size:12px; margin-bottom:10px;">Try the discussion questions yourself first, then reveal the suggested approach.</p>
+        <div id="solutionBox">
+          <button class="btn btn-secondary btn-sm" onclick="revealSolution(${i})">Reveal Suggested Solution</button>
+        </div>
+      </div>
+      <div class="glass" style="padding:22px;">
+        <h3 style="font-size:14.5px; margin-bottom:12px;">💬 Discussion (${caseComments.length})</h3>
+        <div id="caseCommentList" style="display:flex; flex-direction:column; gap:12px; margin-bottom:14px;">${renderCaseComments()}</div>
+        <div style="display:flex; gap:8px;"><input id="caseCommentInput" placeholder="Share your analysis…" style="flex:1;"><button class="btn btn-primary btn-sm" onclick="addCaseComment()">Post</button></div>
+      </div>
+    </div>
+    <div>
+      <div class="glass" style="padding:18px; margin-bottom:16px;">
+        <div style="font-weight:700; font-size:13px; margin-bottom:10px;">Explore Further</div>
+        <button class="btn btn-ghost btn-sm btn-block" style="margin-bottom:8px;" onclick="openDataset(${c.datasetIdx})">📦 Open Dataset: ${c.dataset}</button>
+        <button class="btn btn-ghost btn-sm btn-block" style="margin-bottom:8px;" onclick="navTo('simlab')">🌊 Run Simulation Lab</button>
+        <button class="btn btn-ghost btn-sm btn-block" onclick="navTo('aitutor')">🤖 Ask AURA about this case</button>
+      </div>
+      <div class="glass" style="padding:18px; text-align:center;">
+        <div style="font-size:30px;">🎖️</div>
+        <div style="font-weight:700; font-size:12.5px; margin-top:6px;">Case Study Analyst</div>
+        <div class="muted" style="font-size:11px;">Complete 5 case studies to unlock</div>
+        <button class="btn btn-secondary btn-sm btn-block" style="margin-top:12px;" onclick="addXP(30,'Case study reviewed')">Mark as Reviewed</button>
+      </div>
+    </div>
+  </div>`;
+}
+function revealSolution(i){
+  const box=document.getElementById('solutionBox');
+  if(!box) return;
+  box.innerHTML=`<p style="font-size:13px; line-height:1.7; color:var(--ink-soft); background:rgba(16,185,129,.06); padding:14px; border-radius:10px;">${cases[i].solution}</p>`;
+  addXP(15,'Reviewed suggested solution');
+}
+function saveCaseReflection(i){
+  const ta=document.getElementById('caseReflection');
+  if(!ta || !ta.value.trim()) { toast('Write a few sentences first'); return; }
+  toast('📓 Reflection saved');
+  addXP(10,'Case study reflection');
+}
+function renderCaseComments(){
+  return caseComments.map(c=>`<div style="display:flex; gap:10px;">
+    <div class="avatar-circle" style="width:30px;height:30px; background:linear-gradient(135deg,var(--primary),var(--purple)); font-size:12px; flex-shrink:0;">${c.name[0]}</div>
+    <div><div style="font-weight:700; font-size:12.5px;">${c.name}</div><div class="muted" style="font-size:12.5px; line-height:1.5;">${c.text}</div></div>
+  </div>`).join('');
+}
+function addCaseComment(){
+  const inp=document.getElementById('caseCommentInput');
+  const list=document.getElementById('caseCommentList');
+  if(!inp || !list || !inp.value.trim()) return;
+  caseComments.unshift({name:userState.name, text:inp.value.trim()});
+  inp.value='';
+  list.innerHTML=renderCaseComments();
+  toast('💬 Comment posted');
+}
+
+/* ============================= INSURANCE DASHBOARDS ============================= */
+const insuranceDashboards=[
+  {name:'Motor Insurance Dashboard', icon:'🚗', color:'var(--primary)', kpis:[
+    {label:'Premium Written', value:'₹18.4M'},{label:'Claims Paid', value:'₹11.2M'},
+    {label:'Claim Frequency', value:'8.4%'},{label:'Claim Severity', value:'₹52,300'},
+    {label:'Loss Ratio', value:'61%'},{label:'Combined Ratio', value:'89%'}]},
+  {name:'Property Insurance Dashboard', icon:'🏠', color:'var(--secondary)', kpis:[
+    {label:'Premium Written', value:'₹24.1M'},{label:'Claims Paid', value:'₹15.8M'},
+    {label:'Claim Frequency', value:'5.1%'},{label:'Claim Severity', value:'₹1,84,000'},
+    {label:'Loss Ratio', value:'66%'},{label:'Combined Ratio', value:'94%'}]},
+  {name:'Cyber Insurance Dashboard', icon:'🖥️', color:'var(--purple)', kpis:[
+    {label:'Premium Written', value:'₹6.7M'},{label:'Claims Paid', value:'₹3.9M'},
+    {label:'Claim Frequency', value:'3.2%'},{label:'Claim Severity', value:'₹9,40,000'},
+    {label:'Loss Ratio', value:'58%'},{label:'Combined Ratio', value:'91%'}]},
+  {name:'Climate Risk Dashboard', icon:'🌍', color:'var(--emerald)', kpis:[
+    {label:'Premium Written', value:'₹12.3M'},{label:'Claims Paid', value:'₹9.6M'},
+    {label:'Climate Exposure', value:'High — 4 zones'},{label:'Claim Severity', value:'₹2,10,000'},
+    {label:'Loss Ratio', value:'78%'},{label:'Combined Ratio', value:'105%'}]},
+  {name:'Fraud Dashboard', icon:'🕵️', color:'var(--gold)', kpis:[
+    {label:'Claims Reviewed', value:'2,140'},{label:'Fraud Rate', value:'4.6%'},
+    {label:'Flagged This Month', value:'98'},{label:'Recovered Amount', value:'₹1.1M'},
+    {label:'Avg. Investigation Days', value:'6.2'},{label:'SIU Cases Open', value:'14'}]},
+  {name:'Reinsurance Dashboard', icon:'🏰', color:'var(--primary)', kpis:[
+    {label:'Ceded Premium', value:'₹9.8M'},{label:'Treaty Recoveries', value:'₹4.3M'},
+    {label:'Retention Ratio', value:'72%'},{label:'Cat Layer Utilization', value:'38%'},
+    {label:'Loss Ratio', value:'55%'},{label:'Combined Ratio', value:'86%'}]},
+  {name:'Predictive Analytics Dashboard', icon:'📈', color:'var(--cyan)', kpis:[
+    {label:'Model Accuracy', value:'87%'},{label:'Features Tracked', value:'42'},
+    {label:'High-Risk Segments', value:'6'},{label:'Predicted Loss Ratio', value:'64%'},
+    {label:'Model Last Trained', value:'12 days ago'},{label:'Alerts This Week', value:'9'}]},
+];
+function renderDashboards(){
+  return `${pageHeader('Insurance Dashboards','Live KPI dashboards across every insurance domain')}
+  <div class="grid g3" id="dashboardGrid">
+  ${insuranceDashboards.map((d,i)=>`<div class="card" onclick="openInsuranceDashboard(${i})">
+    <div class="icon-badge" style="background:${d.color}1a; font-size:22px;">${d.icon}</div>
+    <div style="font-weight:700; font-size:14px; margin-top:10px;">${d.name}</div>
+    <div class="muted" style="font-size:11.5px; margin-top:4px;">${d.kpis.length} live KPIs</div>
+  </div>`).join('')}
+  </div>`;
+}
+function openInsuranceDashboard(i){
+  currentTab='_detail';
+  const d=insuranceDashboards[i];
+  showScreen('mainapp');
+  document.getElementById('mainArea').innerHTML=`
+  <div class="back-btn" onclick="navTo('dashboards')" style="margin-bottom:14px;">← Insurance Dashboards</div>
+  <div class="glass" style="padding:24px; margin-bottom:18px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+    <div><h2 style="font-size:20px;">${d.icon} ${d.name}</h2><p class="muted" style="font-size:12.5px; margin-top:4px;">Updated live from platform activity</p></div>
+    <button class="btn btn-ghost btn-sm" onclick="exportDashboardPDF(${i})">📄 Export PDF</button>
+  </div>
+  <div class="grid g3" style="margin-bottom:18px;">
+    ${d.kpis.map(k=>`<div class="card" style="cursor:default;"><div class="muted" style="font-size:11px;">${k.label.toUpperCase()}</div><div style="font-weight:800; font-size:19px; color:${d.color};">${k.value}</div></div>`).join('')}
+  </div>
+  <div class="grid g2">
+    <div class="glass" style="padding:20px;"><h3 style="font-size:14px; margin-bottom:12px;">Trend (12 months)</h3><div style="display:flex; align-items:flex-end; gap:5px; height:110px;">${Array.from({length:12}).map(()=>`<div style="flex:1; height:${Math.random()*70+20}%; background:linear-gradient(180deg, ${d.color}, var(--primary)); border-radius:4px 4px 0 0;"></div>`).join('')}</div></div>
+    <div class="glass" style="padding:20px;"><h3 style="font-size:14px; margin-bottom:8px;">✨ AURA's Read</h3><p class="muted" style="font-size:12.5px; line-height:1.7;">KPIs are within expected seasonal range for ${d.name.replace(' Dashboard','')}. Combined ratio trend is the metric worth watching next quarter.</p><button class="btn btn-ghost btn-sm btn-block" style="margin-top:10px;" onclick="navTo('aitutor')">Ask AURA for details</button></div>
+  </div>`;
+}
+function exportDashboardPDF(i){
+  const d=insuranceDashboards[i];
+  exportPDF(d.name, [
+    {heading:'KPI Summary', body:d.kpis.map(k=>`${k.label}: <b>${k.value}</b>`).join('<br>')},
+    {heading:'Commentary', body:`KPIs are within expected seasonal range for ${d.name.replace(' Dashboard','')}. Combined ratio trend is the metric worth watching next quarter.`},
+  ]);
+  toast('🖨️ Opening print dialog — choose "Save as PDF"');
+}
+
+/* ============================= RESOURCES LIBRARY ============================= */
+const resourceLibrary=[
+  {cat:'Lecture Slides', icon:'🖥️', items:['General Insurance — Foundations','Claims Reserving Methods','Catastrophe Modelling 101']},
+  {cat:'Videos', icon:'🎬', items:['Underwriting Explained (12 min)','Reading a Combined Ratio (8 min)','Cyber Risk in 2026 (15 min)']},
+  {cat:'Formula Sheets', icon:'📐', items:['CAS Core Formula Cheat Sheet','Reserving Formula Reference','Reinsurance Treaty Formulas']},
+  {cat:'Excel Templates', icon:'📗', items:['Loss Ratio Calculator','Claim Triangle Template','Premium Rating Workbook']},
+  {cat:'Python Notebooks', icon:'📓', items:['Frequency-Severity Starter','GLM Pricing Notebook','Fraud Classifier Starter']},
+  {cat:'SQL Exercises', icon:'🗄️', items:['Claims Query Practice Set','Joins for Policy & Claims','Aggregation Drills']},
+  {cat:'Power BI Dashboards', icon:'📊', items:['Motor KPI Starter Dashboard','Climate Exposure Template']},
+  {cat:'Research & Emerging Risk Reports', icon:'📰', items:['State of Cyber Insurance 2026','Climate Risk Actuarial Outlook','AI & ESG in Underwriting']},
+];
+let bookmarkedResources=new Set();
+function renderResources(){
+  return `${pageHeader('Resources Library','Lecture slides, templates, notebooks & reports — bookmark what you need')}
+  <div class="grid g2">
+  ${resourceLibrary.map((group,gi)=>`
+    <div class="glass" style="padding:20px;">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;"><div class="icon-badge" style="background:rgba(30,64,175,.1); font-size:18px;">${group.icon}</div><div style="font-weight:700; font-size:14px;">${group.cat}</div></div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        ${group.items.map((item,ii)=>{
+          const key=gi+'-'+ii;
+          const marked=bookmarkedResources.has(key);
+          return `<div style="display:flex; justify-content:space-between; align-items:center; padding:9px 12px; border-radius:10px; background:rgba(30,64,175,.04);">
+            <span style="font-size:12.5px;">${item}</span>
+            <div style="display:flex; gap:6px;">
+              <span style="cursor:pointer;" onclick="toggleResourceBookmark('${key}',this)">${marked?'🔖':'🏷️'}</span>
+              <span style="cursor:pointer;" onclick="downloadResource('${jsAttr(item)}')">⬇</span>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`).join('')}
+  </div>`;
+}
+function toggleResourceBookmark(key,el){
+  if(bookmarkedResources.has(key)){ bookmarkedResources.delete(key); el.textContent='🏷️'; toast('Bookmark removed'); }
+  else{ bookmarkedResources.add(key); el.textContent='🔖'; toast('🔖 Bookmarked'); }
+}
+function downloadResource(name){
+  const content=`ActuaryVerse AI — Resource\n\nTitle: ${name}\nGenerated for: ${userState.name}\nDate: ${new Date().toLocaleDateString()}\n\nThis is a placeholder resource file for the classroom teaching toolkit.`;
+  if(downloadBlob(content, fileSlug(name)+'.txt', 'text/plain')) toast('⬇ '+name+' downloaded');
+}
+
+/* ============================= 36. LEADERBOARD ============================= */
+const npcLeaders=[
+  {name:'Wei Zhang', uni:'NUS', xp:9840},
+  {name:'Priya Raman', uni:'IIT Madras', xp:9210},
+  {name:'Carlos Mendez', uni:'UNAM', xp:8410},
+  {name:'Fatima Noor', uni:'LSE', xp:8025},
+  {name:"Liam O'Connor", uni:'UCD', xp:7690},
+];
+function renderLeaderboard(){
+  const leaders=[...npcLeaders, {name:`${userState.name} (You)`, uni:userState.uni, xp:userState.xp, me:true}]
+    .sort((a,b)=>b.xp-a.xp);
+  const podium=leaders.slice(0,3);
+  return `${pageHeader('Leaderboard','Weekly rankings across flashcards, games & projects')}
+  <div style="display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap;" id="leaderFilters">
+    ${['Overall','Universities','Flashcards','Games','Projects'].map((f,i)=>`<div class="chip ${i===0?'active':''}" onclick="selectChip(this); toast('Showing: ${f} rankings')">${f}</div>`).join('')}
+  </div>
+  <div style="display:flex; justify-content:center; align-items:flex-end; gap:16px; margin-bottom:26px;">
+    ${[podium[1],podium[0],podium[2]].filter(Boolean).map((p,i)=>{
+      const heights=[100,130,80]; const medal=['🥈','🥇','🥉'];
+      return `<div style="text-align:center;"><div style="font-size:26px;">${medal[i]}</div>
+        <div class="avatar-circle" style="width:56px;height:56px;background:linear-gradient(135deg,var(--primary),var(--purple)); margin:6px auto;">${p.name[0]}</div>
+        <div style="font-weight:700; font-size:12.5px;">${p.name}</div><div class="muted" style="font-size:10.5px;">${p.xp.toLocaleString()} XP</div>
+        <div class="glass" style="width:90px; height:${heights[i]}px; margin-top:8px; border-radius:12px 12px 0 0;"></div></div>`;
+    }).join('')}
+  </div>
+  <div class="glass" style="padding:6px;">
+    ${leaders.map((l,i)=>`<div style="display:flex; align-items:center; gap:14px; padding:12px 16px; border-radius:12px; ${l.me?'background:rgba(30,64,175,.08);':''}">
+      <div style="width:22px; font-weight:800; color:var(--ink-soft);">${i+1}</div>
+      <div class="avatar-circle" style="width:36px;height:36px; background:linear-gradient(135deg,var(--primary-light),var(--purple)); font-size:13px;">${l.name[0]}</div>
+      <div style="flex:1;"><div style="font-weight:700; font-size:13.5px;">${l.name}</div><div class="muted" style="font-size:11px;">${l.uni}</div></div>
+      <div style="font-weight:700; color:var(--primary);">${l.xp.toLocaleString()} XP</div>
+    </div>`).join('')}
+  </div>`;
+}
+
+/* ============================= 37. BADGES ============================= */
+function renderBadges(){
+  const tiers=[{n:'Bronze',c:'#B08D57'},{n:'Silver',c:'#B8BEC7'},{n:'Gold',c:'#F0B429'},{n:'Platinum',c:'#7FD8E8'},{n:'Legendary',c:'#B565F7'}];
+  let html=`${pageHeader('Badge Collection','42 of 100 badges unlocked')}<div class="progress-track" style="margin-bottom:24px;"><div class="progress-fill" style="width:42%"></div></div>`;
+  tiers.forEach(t=>{
+    html+=`<div style="margin-bottom:22px;"><div style="font-weight:700; font-size:13.5px; margin-bottom:12px;">${t.n} Tier</div><div style="display:flex; gap:14px; flex-wrap:wrap;">`;
+    for(let i=0;i<8;i++){
+      const locked = Math.random()>0.55;
+      html+=`<div class="badge-hex" style="background:${locked?'rgba(30,64,175,.08)':t.c+'33'}; ${!locked?`box-shadow:0 0 18px ${t.c}66;`:''}" onclick="toast('${locked?'🔒 Keep playing to unlock':t.n+' Badge #'+(i+1)+' — unlocked!'}')">
+        ${locked?'<span style="opacity:.35;">🔒</span>':'<span>'+['🏅','🎖️','⭐','🛡️','🏆','💎','🔥','🚀'][i]+'</span>'}
+      </div>`;
+    }
+    html+=`</div></div>`;
+  });
+  return html;
+}
+
+/* ============================= 38. REWARD STORE ============================= */
+function renderStore(){
+  return `${pageHeader('Reward Store',`${userState.coins.toLocaleString()} 🪙 · ${userState.gems} 💎 available`,`<div class="pill" style="background:rgba(245,158,11,.14); color:var(--gold);">🪙 ${userState.coins.toLocaleString()}</div><div class="pill" style="background:rgba(139,92,246,.14); color:var(--purple);">💎 ${userState.gems}</div>`)}
+  <div class="grid g4" style="margin-bottom:20px;">
+    <div class="card" style="text-align:center;" onclick="spinWheel()"><div style="font-size:30px;">🎡</div><div style="font-weight:700; font-size:13px; margin-top:8px;">Lucky Spin Wheel</div></div>
+    <div class="card" style="text-align:center;" onclick="openChest()"><div style="font-size:30px;">🎁</div><div style="font-weight:700; font-size:13px; margin-top:8px;">Mystery Box</div></div>
+    <div class="card" style="text-align:center;" onclick="openChest()"><div style="font-size:30px;">🗝️</div><div style="font-weight:700; font-size:13px; margin-top:8px;">Treasure Hunt Chest</div></div>
+    <div class="card" style="text-align:center;" onclick="toast('🐾 Opening pet shop…')"><div style="font-size:30px;">🐾</div><div style="font-weight:700; font-size:13px; margin-top:8px;">Pet Shop</div></div>
+  </div>
+  <div class="grid g4" style="margin-bottom:20px;">
+  ${['🥼 Cyber Hoodie','🧥 Climate Jacket','🕶️ Gold Sunglasses','🎨 Neon Theme','🦉 Owl Companion','🏆 Champion Frame','🌌 Galaxy Background','🐈 Cat Companion'].map((it,i)=>`
+    <div class="card" style="text-align:center;" onclick="buyItem('${jsAttr(it)}',${(i+1)*80})">
+      <div style="font-size:26px;">${it.split(' ')[0]}</div>
+      <div style="font-weight:700; font-size:12.5px; margin-top:8px;">${it.split(' ').slice(1).join(' ')}</div>
+      <button class="btn btn-secondary btn-sm btn-block" style="margin-top:10px;" onclick="event.stopPropagation(); buyItem('${jsAttr(it)}',${(i+1)*80})">🪙 ${(i+1)*80}</button>
+    </div>`).join('')}
+  </div>
+  <div style="font-weight:700; font-size:13px; margin-bottom:12px;">💎 Legendary Items (Gems)</div>
+  <div class="grid g4">
+  ${['🌟 Legendary Aura Frame','👑 Chief Risk Officer Crown','🐉 Dragon Companion','🎇 Fireworks Emote'].map((it,i)=>`
+    <div class="card" style="text-align:center; border:1px solid rgba(139,92,246,.3);" onclick="buyGemItem('${jsAttr(it)}',${(i+1)*12})">
+      <div style="font-size:26px;">${it.split(' ')[0]}</div>
+      <div style="font-weight:700; font-size:12.5px; margin-top:8px;">${it.split(' ').slice(1).join(' ')}</div>
+      <button class="btn btn-outline btn-sm btn-block" style="margin-top:10px; border-color:var(--purple); color:var(--purple);" onclick="event.stopPropagation(); buyGemItem('${jsAttr(it)}',${(i+1)*12})">💎 ${(i+1)*12}</button>
+    </div>`).join('')}
+  </div>`;
+}
+function buyItem(name,cost){
+  if(userState.coins<cost){ toast('🪙 Not enough coins yet — play more games!'); return; }
+  userState.coins-=cost;
+  toast(`✅ ${name.split(' ').slice(1).join(' ')} equipped!`);
+  refreshLiveViews();
+}
+function buyGemItem(name,cost){
+  if(userState.gems<cost){ toast('💎 Not enough gems yet — complete missions to earn more!'); return; }
+  userState.gems-=cost;
+  toast(`✨ ${name.split(' ').slice(1).join(' ')} equipped!`);
+  refreshLiveViews();
+}
+function addGems(n){ userState.gems+=n; refreshLiveViews(); }
+function spinWheel(){
+  confetti(50);
+  if(Math.random()<0.4){ addGems(5); toast('🎡 Lucky spin! +5 💎 gems'); }
+  else{ addXP(150,'Spin Wheel'); }
+}
+function openChest(){ confetti(50); addCoins(60); toast('🎁 Mystery box: Climate Jacket unlocked! +60 coins'); }
+
+/* ============================= 39. COMMUNITY HUB ============================= */
+let communityPosts=[
+  {name:'Priya Raman', uni:'IIT Madras', text:"Just finished the Flood Zone Puzzle — anyone else surprised how much elevation data matters for pricing?", likes:24},
+  {name:'Carlos Mendez', uni:'UNAM', text:'Sharing my Combined Ratio dashboard from Project Lab! Feedback welcome 🙏', likes:31},
+  {name:'Fatima Noor', uni:'LSE', text:'Study group for Reserving Valley boss battle this Thursday 8pm UTC — join us!', likes:12},
+];
+function renderCommunity(){
+  return `${pageHeader('Community Hub','Discussions, study groups & shared projects')}
+  <div class="grid" style="grid-template-columns:2fr 1fr;">
+    <div>
+      <div class="glass" style="padding:16px; margin-bottom:16px; display:flex; gap:10px;"><input id="communityPostInput" placeholder="Share an update with the community…" style="flex:1;" onkeydown="if(event.key==='Enter')addCommunityPost()"><button class="btn btn-primary btn-sm" onclick="addCommunityPost()">Post</button></div>
+      <div id="communityFeed">${renderCommunityFeed()}</div>
+    </div>
+    <div>
+      <div class="glass" style="padding:18px; margin-bottom:16px;"><div style="font-weight:700; font-size:13px; margin-bottom:10px;">🎯 Weekly Challenge</div><p class="muted" style="font-size:12.5px;">Complete 3 mini-games with 90%+ accuracy for a Legendary badge.</p></div>
+      <div class="glass" style="padding:18px; margin-bottom:16px;"><div style="font-weight:700; font-size:13px; margin-bottom:10px;">👥 Study Groups</div><p class="muted" style="font-size:12.5px;">Reserving Valley Crew · 24 members<br>Cyber Risk Circle · 18 members</p></div>
+      <div class="glass" style="padding:18px;"><div style="font-weight:700; font-size:13px; margin-bottom:10px;">🙋 Ask</div><button class="btn btn-ghost btn-sm btn-block" style="margin-bottom:8px;" onclick="navTo('aitutor')">Ask AURA</button><button class="btn btn-ghost btn-sm btn-block" onclick="toast('📨 Message sent to instructor')">Ask Instructor</button></div>
+    </div>
+  </div>`;
+}
+function renderCommunityFeed(){
+  return communityPosts.map((p,i)=>`<div class="glass" style="padding:18px; margin-bottom:14px;">
+        <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;"><div class="avatar-circle" style="width:34px;height:34px; background:linear-gradient(135deg,var(--primary),var(--purple)); font-size:13px;">${p.name[0]}</div><div><div style="font-weight:700; font-size:13px;">${p.name}</div><div class="muted" style="font-size:10.5px;">${p.uni}</div></div></div>
+        <p style="font-size:13.5px; line-height:1.6;">${p.text}</p>
+        <div style="display:flex; gap:16px; margin-top:12px;">
+          <span class="muted" style="font-size:12px; cursor:pointer;" onclick="likePost(${i})">❤️ ${p.likes}</span>
+          <span class="muted" style="font-size:12px; cursor:pointer;" onclick="toast('💬 Comment box opened')">💬 Comment</span>
+          <span class="muted" style="font-size:12px; cursor:pointer;" onclick="toast('🔖 Bookmarked')">🔖 Save</span>
+        </div>
+      </div>`).join('');
+}
+function addCommunityPost(){
+  const inp=document.getElementById('communityPostInput');
+  const feed=document.getElementById('communityFeed');
+  if(!inp || !feed || !inp.value.trim()) return;
+  communityPosts.unshift({name:userState.name, uni:userState.uni, text:inp.value.trim(), likes:0});
+  inp.value='';
+  feed.innerHTML=renderCommunityFeed();
+  toast('📢 Posted to the community');
+}
+function likePost(i){
+  communityPosts[i].likes++;
+  const feed=document.getElementById('communityFeed');
+  if(feed) feed.innerHTML=renderCommunityFeed();
+}
+
+/* ============================= 40. ANALYTICS DASHBOARD ============================= */
+function renderAnalytics(){
+  const skills=['Pricing','Reserving','Cat Modelling','Cyber','Climate','Fraud'];
+  return `${pageHeader('My Analytics','Personal performance across ActuaryVerse')}
+  <div class="grid" style="grid-template-columns:1fr 1fr; margin-bottom:18px;">
+    <div class="glass" style="padding:22px;">
+      <h3 style="font-size:14px; margin-bottom:14px;">Skill Radar</h3>
+      <svg width="100%" viewBox="0 0 240 220">
+        ${[1,0.75,0.5,0.25].map(s=>`<polygon points="${radarPoints(s)}" fill="none" stroke="rgba(30,64,175,.12)"/>`).join('')}
+        <polygon points="${radarPoints(1,[0.9,0.6,0.4,0.3,0.2,0.7])}" fill="rgba(30,64,175,.25)" stroke="#1E40AF" stroke-width="2"/>
+        ${skills.map((s,i)=>{const a=(Math.PI*2*i/6)-Math.PI/2; const x=120+Math.cos(a)*100; const y=110+Math.sin(a)*100; return `<text x="${x}" y="${y}" font-size="10" fill="currentColor" text-anchor="middle">${s}</text>`}).join('')}
+      </svg>
+    </div>
+    <div class="glass" style="padding:22px;">
+      <h3 style="font-size:14px; margin-bottom:14px;">Study Hours (Monthly)</h3>
+      <div style="display:flex; align-items:flex-end; gap:8px; height:150px;">${[12,18,24,16,30,26,34].map(h=>`<div style="flex:1; height:${h*3}px; background:linear-gradient(180deg,var(--secondary-light),var(--secondary)); border-radius:6px 6px 0 0;"></div>`).join('')}</div>
+    </div>
+  </div>
+  <div class="grid g4">
+    <div class="card" style="cursor:default;"><div class="muted" style="font-size:11px;">FLASHCARD MASTERY</div><div style="font-weight:800; font-size:19px;">78%</div></div>
+    <div class="card" style="cursor:default;"><div class="muted" style="font-size:11px;">GAMES PLAYED</div><div style="font-weight:800; font-size:19px;">${64+userState.completedGames}</div></div>
+    <div class="card" style="cursor:default;"><div class="muted" style="font-size:11px;">PROJECTS DONE</div><div style="font-weight:800; font-size:19px;">3</div></div>
+    <div class="card" style="cursor:default;"><div class="muted" style="font-size:11px;">QUIZZES TAKEN</div><div style="font-weight:800; font-size:19px;">${userState.completedQuizzes}</div></div>
+  </div>
+  <div class="glass" style="padding:20px; margin-top:18px;"><h3 style="font-size:14px; margin-bottom:8px;">✨ AI Recommendation</h3><p class="muted" style="font-size:13px;">Your Cyber skill score is lower than Pricing — try the "Cyber Investigation" mini-game and Cyber Insurance mission this week.</p></div>`;
+}
+function radarPoints(scale, values){
+  values = values || [1,1,1,1,1,1];
+  return values.map((v,i)=>{const a=(Math.PI*2*i/6)-Math.PI/2; const r=100*scale*v; return `${120+Math.cos(a)*r},${110+Math.sin(a)*r}`}).join(' ');
+}
+
+/* ============================= 41-42. INSTRUCTOR PORTAL + CLASSROOM ============================= */
+function renderInstructor(){
+  return `${pageHeader('Instructor Portal','ACSC 301 — General Insurance · 84 students',`<button class="btn btn-secondary btn-sm" onclick="toast('📄 Report exported')">Download Report</button>`)}
+  <div class="grid g4" style="margin-bottom:18px;">
+    <div class="card" style="cursor:default;"><div class="muted" style="font-size:11px;">STUDENTS</div><div style="font-weight:800; font-size:19px;">84</div></div>
+    <div class="card" style="cursor:default;"><div class="muted" style="font-size:11px;">AVG COMPLETION</div><div style="font-weight:800; font-size:19px;">68%</div></div>
+    <div class="card" style="cursor:default;"><div class="muted" style="font-size:11px;">ASSIGNMENTS DUE</div><div style="font-weight:800; font-size:19px;">3</div></div>
+    <div class="card" style="cursor:default;"><div class="muted" style="font-size:11px;">AVG ATTENDANCE</div><div style="font-weight:800; font-size:19px;">92%</div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:2fr 1fr;">
+    <div class="glass" style="padding:20px;">
+      <h3 style="font-size:14px; margin-bottom:14px;">Student Progress</h3>
+      ${['Priya Raman','Carlos Mendez','Fatima Noor',"Liam O'Connor",'Wei Zhang'].map(n=>`
+        <div style="display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid rgba(30,64,175,.06);">
+          <div class="avatar-circle" style="width:30px;height:30px; background:linear-gradient(135deg,var(--primary),var(--purple)); font-size:12px;">${n[0]}</div>
+          <div style="flex:1; font-size:13px; font-weight:600;">${n}</div>
+          <div class="progress-track" style="width:120px;"><div class="progress-fill" style="width:${Math.floor(Math.random()*60+30)}%"></div></div>
+          <button class="btn btn-ghost btn-sm" onclick="toast('Opening gradebook for ${jsAttr(n)}…')">Grade</button>
+        </div>`).join('')}
+    </div>
+    <div>
+      <div class="glass" style="padding:18px; margin-bottom:14px;"><div style="font-weight:700; font-size:13px; margin-bottom:8px;">Create Classroom</div><button class="btn btn-primary btn-sm btn-block" onclick="navTo('classroom')">+ New Classroom</button></div>
+      <div class="glass" style="padding:18px;"><div style="font-weight:700; font-size:13px; margin-bottom:8px;">Assign</div>
+        <button class="btn btn-ghost btn-sm btn-block" style="margin-bottom:8px;" onclick="toast('Mission assigned 📘')">Assign Mission</button>
+        <button class="btn btn-ghost btn-sm btn-block" style="margin-bottom:8px;" onclick="toast('Quiz assigned 📝')">Assign Quiz</button>
+        <button class="btn btn-ghost btn-sm btn-block" onclick="toast('Project assigned 🧪')">Assign Project</button>
+      </div>
+    </div>
+  </div>`;
+}
+function renderClassroom(){
+  return `${pageHeader('Create Classroom','Set up a new class and invite students')}
+  <div class="glass" style="padding:24px; max-width:600px;">
+    <label>Classroom name</label><input placeholder="ACSC 402 — Emerging Risks" style="width:100%; margin-bottom:14px;">
+    <label>Invite students (emails, comma separated)</label><textarea rows="3" style="width:100%; margin-bottom:14px;" placeholder="student1@uni.edu, student2@uni.edu"></textarea>
+    <label>Assign starter content</label>
+    <div style="display:flex; gap:8px; margin-bottom:18px;" id="classroomChips"><div class="chip active" onclick="selectChip(this)">Mission 1</div><div class="chip" onclick="selectChip(this)">Quiz</div><div class="chip" onclick="selectChip(this)">Project</div></div>
+    <button class="btn btn-primary btn-block" onclick="confetti(40); toast('Classroom created! 🎉'); navTo('instructor')">Create Classroom</button>
+  </div>`;
+}
+
+/* ============================= 43. CERTIFICATES ============================= */
+function renderCertificates(){
+  const certs=[
+    {name:'General Insurance Fundamentals', type:'Mission Certificate', xp:150, badge:'Insurance Explorer', date:'Jul 14, 2026'},
+    {name:'Motor Pricing Model', type:'Project Certificate', xp:320, badge:'Motor Pricing Specialist', date:'Jul 29, 2026'},
+    {name:'Weekly Challenge Winner', type:'Challenge Certificate', xp:150, badge:'Speed Demon', date:'Aug 4, 2026'},
+    {name:'Reserving Valley Leaderboard #3', type:'Leaderboard Winner', xp:200, badge:'Top Reserving Analyst', date:'Aug 18, 2026'},
+  ];
+  return `${pageHeader('Certificate Center','Your achievements, ready to share')}
+  <div class="grid g2">
+  ${certs.map((c,i)=>`
+    <div class="glass" style="padding:26px; text-align:center; border:2px solid rgba(245,158,11,.3);">
+      <div style="font-size:34px;">📜</div>
+      <div style="font-weight:800; font-size:16px; margin-top:10px;" class="gradient-title">${c.name}</div>
+      <div class="muted" style="font-size:12px; margin:6px 0 12px;">${c.type} · ActuaryVerse AI</div>
+      <div style="display:flex; justify-content:center; gap:8px; flex-wrap:wrap; margin-bottom:14px;">
+        <span class="pill" style="background:rgba(245,158,11,.12); color:var(--gold);">⭐ ${c.xp} XP</span>
+        <span class="pill" style="background:rgba(139,92,246,.12); color:var(--purple);">🎖️ ${c.badge}</span>
+      </div>
+      <div style="text-align:left; border-top:1px dashed rgba(30,64,175,.2); padding-top:12px; margin-top:4px; font-size:11px;" class="muted">
+        <div style="display:flex; justify-content:space-between;"><span>Awarded to:</span><span style="font-weight:600; color:var(--ink);">${userState.name}</span></div>
+        <div style="display:flex; justify-content:space-between; margin-top:4px;"><span>Completion date:</span><span style="font-weight:600; color:var(--ink);">${c.date}</span></div>
+        <div style="display:flex; justify-content:space-between; margin-top:4px;"><span>Instructor signature:</span><span style="font-style:italic;">_______________</span></div>
+      </div>
+      <div style="display:flex; gap:10px; justify-content:center; margin-top:16px;">
+        <button class="btn btn-ghost btn-sm" onclick="downloadCertificate(${i})">Download</button>
+        <button class="btn btn-secondary btn-sm" onclick="toast('🔗 Share link copied')">Share</button>
+      </div>
+    </div>`).join('')}
+  </div>`;
+}
+function downloadCertificate(i){
+  const certs=[
+    {name:'General Insurance Fundamentals', type:'Mission Certificate', xp:150, badge:'Insurance Explorer', date:'Jul 14, 2026'},
+    {name:'Motor Pricing Model', type:'Project Certificate', xp:320, badge:'Motor Pricing Specialist', date:'Jul 29, 2026'},
+    {name:'Weekly Challenge Winner', type:'Challenge Certificate', xp:150, badge:'Speed Demon', date:'Aug 4, 2026'},
+    {name:'Reserving Valley Leaderboard #3', type:'Leaderboard Winner', xp:200, badge:'Top Reserving Analyst', date:'Aug 18, 2026'},
+  ];
+  const c=certs[i];
+  exportPDF('Certificate — '+c.name, [
+    {heading:c.type, body:`Awarded to <b>${userState.name}</b> · ${userState.uni}`},
+    {heading:'Achievement', body:`${c.name}<br>XP Earned: ${c.xp} &nbsp;·&nbsp; Badge Earned: ${c.badge}<br>Completion Date: ${c.date}`},
+    {heading:'Instructor Signature', body:'_______________________________'},
+  ]);
+  toast('🖨️ Opening print dialog — choose "Save as PDF"');
+}
+
+/* ============================= 44. PROFILE ============================= */
+const careerLevels=['Insurance Explorer','Risk Analyst','Pricing Associate','Reserving Analyst','Fraud Investigator','Catastrophe Modeller','Cyber Risk Specialist','Climate Risk Actuary','Reinsurance Analyst','Chief Risk Officer'];
+function careerTitle(level){ return careerLevels[Math.min(level-1, careerLevels.length-1)]; }
+function renderProfile(){
+  const title=careerTitle(userState.level);
+  const nextTitle=careerLevels[userState.level] || null;
+  const xpIntoLevel = userState.xp % 650;
+  const progressPct = Math.round((xpIntoLevel/650)*100);
+  return `${pageHeader('Profile','')}
+  <div class="grid" style="grid-template-columns:1fr 2fr;">
+    <div class="glass" style="padding:26px; text-align:center; height:fit-content;">
+      <div style="width:110px;height:110px; border-radius:30px; margin:0 auto 14px; background:linear-gradient(135deg,var(--purple),var(--primary)); display:flex; align-items:center; justify-content:center; font-size:52px;">${userState.avatarEmoji}</div>
+      <div style="font-weight:800; font-size:17px;">${userState.name}</div>
+      <div class="muted" style="font-size:12.5px;">${userState.uni} · Level ${userState.level} · ${title}</div>
+      <p class="muted" style="font-size:12px; margin-top:10px;">"Future FCAS. Obsessed with catastrophe modelling and good coffee."</p>
+      <button class="btn btn-outline btn-sm btn-block" style="margin-top:14px;" onclick="toast('✏️ Edit profile opened')">Edit Profile</button>
+    </div>
+    <div>
+      <div class="glass" style="padding:20px; margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;"><h3 style="font-size:14px;">🎯 Career Path</h3><span class="muted" style="font-size:11.5px;">${nextTitle?`Next: ${nextTitle}`:'Max career level reached'}</span></div>
+        <div class="progress-track"><div class="progress-fill" style="width:${progressPct}%"></div></div>
+        <div style="display:flex; justify-content:space-between; margin-top:10px; flex-wrap:wrap; gap:4px;">
+          ${careerLevels.map((c,i)=>`<span class="pill" style="font-size:10px; background:${i+1<=userState.level?'rgba(30,64,175,.12); color:var(--primary)':'rgba(30,64,175,.05); color:var(--ink-soft)'};">${i+1<=userState.level?'✓ ':''}${c}</span>`).join('')}
+        </div>
+      </div>
+      <div class="grid g4" style="margin-bottom:16px;">
+        <div class="card" style="cursor:default; text-align:center;"><div style="font-weight:800; font-size:18px;">${userState.xp.toLocaleString()}</div><div class="muted" style="font-size:10.5px;">XP</div></div>
+        <div class="card" style="cursor:default; text-align:center;"><div style="font-weight:800; font-size:18px;">42</div><div class="muted" style="font-size:10.5px;">Badges</div></div>
+        <div class="card" style="cursor:default; text-align:center;"><div style="font-weight:800; font-size:18px;">3</div><div class="muted" style="font-size:10.5px;">Projects</div></div>
+        <div class="card" style="cursor:default; text-align:center;"><div style="font-weight:800; font-size:18px;">${userState.streak}</div><div class="muted" style="font-size:10.5px;">Day Streak</div></div>
+      </div>
+      <div class="glass" style="padding:20px;">
+        <h3 style="font-size:14px; margin-bottom:12px;">Recent Achievements</h3>
+        <div class="muted" style="font-size:13px; line-height:2.1;">🏅 Completed "Property Insurance" mission<br>🎖️ Earned "Fraud Detective" Gold badge<br>📜 Certified in Motor Pricing Model<br>🔥 Hit a ${userState.streak}-day learning streak<br>🕹️ ${userState.completedGames} mini-games completed this session<br>📝 ${userState.completedQuizzes} quizzes completed this session</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ============================= 45. SETTINGS ============================= */
+function renderSettings(){
+  return `${pageHeader('Settings','Customize your ActuaryVerse experience')}
+  <div class="glass" style="padding:6px; max-width:640px;">
+    ${settingRow('🌙','Dark Mode','Switch between light and dark themes','darkModeSwitch', document.documentElement.getAttribute('data-theme')==='dark')}
+    ${settingRow('🔔','Notifications','Mission reminders & streak alerts','notifSwitch', true)}
+    ${settingRow('🔊','Sound Effects','XP chimes, badge unlocks, clicks','soundSwitch', true)}
+    ${settingRow('♿','Accessibility Mode','Larger text & high contrast','a11ySwitch', false)}
+    <div style="padding:14px 16px;"><label>Language</label><select style="width:220px;" onchange="toast('🌐 Language set to '+this.value)"><option>English</option><option>Tamil</option><option>Hindi</option><option>Spanish</option></select></div>
+    <div style="padding:14px 16px;"><label>Theme Color</label>
+      <div style="display:flex; gap:10px; margin-top:6px;">
+        ${['#1E40AF','#F97316','#10B981','#8B5CF6','#06B6D4'].map(c=>`<div onclick="setAccent('${c}')" style="width:28px;height:28px;border-radius:50%; background:${c}; cursor:pointer; border:2px solid #fff; box-shadow:0 0 0 2px ${c}55;"></div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+function settingRow(icon,title,desc,id,on){
+  return `<div style="display:flex; align-items:center; gap:14px; padding:14px 16px; border-bottom:1px solid rgba(30,64,175,.06);">
+    <div class="icon-badge" style="background:rgba(30,64,175,.08); font-size:18px;">${icon}</div>
+    <div style="flex:1;"><div style="font-weight:700; font-size:13.5px;">${title}</div><div class="muted" style="font-size:11.5px;">${desc}</div></div>
+    <div class="switch ${on?'on':''}" id="${id}" onclick="toggleSwitch(this,'${id}')"><div class="knob"></div></div>
+  </div>`;
+}
+function toggleSwitch(el,id){
+  el.classList.toggle('on');
+  if(id==='darkModeSwitch'){
+    const isDark = el.classList.contains('on');
+    document.documentElement.setAttribute('data-theme', isDark?'dark':'light');
+    toast(isDark? '🌙 Dark mode on' : '☀️ Light mode on');
+  } else {
+    toast('Preference updated');
+  }
+}
+function setAccent(color){
+  document.documentElement.style.setProperty('--secondary', color);
+  document.documentElement.style.setProperty('--secondary-light', color);
+  toast('🎨 Accent color updated');
+}
+
+/* ============================= RENDERER MAP ============================= */
+const renderers={
+  dashboard: renderDashboard,
+  worldmap: renderWorldMap,
+  mission: renderMissionList,
+  flashacademy: renderFlashAcademy,
+  arcade: renderArcade,
+  datasethub: renderDatasetHub,
+  edaplayground: renderEdaPlayground,
+  projectlab: renderProjectLab,
+  aitutor: ()=>{ setTimeout(drawAura,0); return renderAiTutor(); },
+  simlab: renderSimLab,
+  casestudy: renderCaseStudy,
+  dashboards: renderDashboards,
+  resources: renderResources,
+  leaderboard: renderLeaderboard,
+  badges: renderBadges,
+  store: renderStore,
+  community: renderCommunity,
+  analytics: renderAnalytics,
+  instructor: renderInstructor,
+  classroom: renderClassroom,
+  certificates: renderCertificates,
+  profile: renderProfile,
+  settings: renderSettings,
+};
+</script>
+</body>
+</html>
